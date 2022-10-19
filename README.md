@@ -1,5 +1,5 @@
 # Linux-Windows-Switcher
-Linux desktop application to cycle through windows like when using ALT + TAB but it allows to specify the windows, reorder them, exclude them and set two global hoykeys to go forwards and backwards to cycle through the desired windows. 
+Linux desktop application to cycle through windows like when using ALT + TAB but it allows to specify the windows, reorder them, exclude them and set two global hotkeys to go forwards and backwards to cycle through the desired windows. 
 
 <img src="https://user-images.githubusercontent.com/32344641/196622904-7769213b-cb4c-46c5-b715-44b3a714e517.png" width="510" height="468" />
 <img src="https://user-images.githubusercontent.com/32344641/196622923-e07b60c5-4d43-46cb-ad56-41eaa9718b10.png" width="509.4" height="466.2" />
