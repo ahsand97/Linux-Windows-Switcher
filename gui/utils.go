@@ -1,0 +1,299 @@
+package gui
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"unicode"
+
+	"linux-windows-switcher/libs/goxdo"
+	"linux-windows-switcher/libs/xlib"
+
+	"github.com/gotk3/gotk3/gdk"
+	"github.com/gotk3/gotk3/glib"
+	"github.com/gotk3/gotk3/gtk"
+)
+
+var (
+	funcGetResource       func(resource string) []byte // Anonymous function that returns a slice of bytes from a needed resource
+	funcGetStringResource func(id string) string       // Anonymous function that returns a string from the localizer
+)
+
+// Title of the application
+func GetTitle() string {
+	return title
+}
+
+// Returns a *gdk.Pixbuf from a slice of bytes
+func getPixBuf(content []byte) *gdk.Pixbuf {
+	return func(pixbuf *gdk.Pixbuf, err error) *gdk.Pixbuf {
+		return pixbuf
+	}(gdk.PixbufNewFromBytesOnly(content))
+}
+
+// Returns a *gdk.Pixbuf from a slice of bytes at desired size
+func getPixBufAtSize(iconName string, width int, height int) *gdk.Pixbuf {
+	iconOriginalSize := getPixBuf(funcGetResource(iconName))
+	iconScaled, _ := iconOriginalSize.ScaleSimple(width, height, gdk.INTERP_HYPER)
+	return iconScaled
+}
+
+// This function return the current active windows using Xlib
+func listWindows(includeIcons bool) []window {
+	var windows []window
+	lookForAlternativeProperty := false
+	defaultBufferSize := 1024
+
+	// Client List
+	val, err := xlib.GetWindowProperty(xlib.GetRootWindow(), "_NET_CLIENT_LIST", 0, defaultBufferSize, true)
+	if err != nil {
+		lookForAlternativeProperty = true
+	} else if val != nil && len(val.GetLong()) == 0 {
+		lookForAlternativeProperty = true
+	}
+	if lookForAlternativeProperty {
+		lookForAlternativeProperty = false
+		// GNOME Spec property "_WIN_CLIENT_LIST"
+		val, err = xlib.GetWindowProperty(xlib.GetRootWindow(), "_WIN_CLIENT_LIST", 0, defaultBufferSize, true)
+		if err != nil {
+			return windows
+		} else if val != nil && len(val.GetLong()) == 0 {
+			return windows
+		}
+	}
+
+	// Loop to get data of every window
+	for _, v := range val.GetLong() {
+		// Window
+		win := xlib.Window(v)
+
+		// Window Desktop
+		desktop_, err := xlib.GetWindowProperty(win, "_NET_WM_DESKTOP", 0, defaultBufferSize, true)
+		if err != nil {
+			lookForAlternativeProperty = true
+		} else if desktop_ != nil && len(desktop_.GetLong()) == 0 {
+			lookForAlternativeProperty = true
+		}
+		if lookForAlternativeProperty {
+			lookForAlternativeProperty = false
+			// GNOME Spec property "_WIN_WORKSPACE"
+			desktop_, err = xlib.GetWindowProperty(win, "_WIN_WORKSPACE", 0, defaultBufferSize, true)
+			if err != nil {
+				continue
+			} else if desktop_ != nil && len(desktop_.GetLong()) == 0 {
+				continue
+			}
+		}
+		desktop := int(desktop_.GetLong()[0])
+
+		// Window class
+		class_, err := xlib.GetWindowProperty(win, "WM_CLASS", 0, defaultBufferSize, true)
+		if err != nil {
+			continue
+		} else if class_ != nil && len(class_.GetChar()) == 0 {
+			continue
+		}
+		class := strings.Join(class_.GetString(), ".")
+		class = strings.TrimSpace(strings.TrimSuffix(class, "."))
+
+		// Window Title
+		title_, err := xlib.GetWindowProperty(win, "_NET_WM_NAME", 0, defaultBufferSize, true)
+		if err != nil {
+			lookForAlternativeProperty = true
+		} else if title_ != nil && len(title_.GetChar()) == 0 {
+			lookForAlternativeProperty = true
+		}
+		if lookForAlternativeProperty {
+			lookForAlternativeProperty = false
+			title_, err = xlib.GetWindowProperty(win, "WM_NAME", 0, defaultBufferSize, true)
+			if err != nil {
+				continue
+			} else if title_ != nil && len(title_.GetChar()) == 0 {
+				continue
+			}
+		}
+		title := strings.Join(title_.GetString(), " ")
+
+		// Window Icon
+		var windowIcon *gdk.Pixbuf
+		if includeIcons {
+			originalIcon_ := xlib.GetWindowIcon(win)
+			if originalIcon_ != nil {
+				scaledIcon, err := originalIcon_.ScaleSimple(24, 24, gdk.INTERP_HYPER)
+				if err == nil {
+					windowIcon = scaledIcon
+				}
+			}
+		}
+
+		window := &window{
+			id:      fmt.Sprint(v),
+			class:   class,
+			title:   title,
+			desktop: desktop,
+			icon:    windowIcon,
+		}
+		windows = append(windows, *window)
+	}
+	return windows
+}
+
+// Remove item from a slice of strings
+func removeItem(list []string, item string) []string {
+	for index, value := range list {
+		if value == item {
+			return append(list[:index], list[index+1:]...)
+		}
+	}
+	return list
+}
+
+// Function that returns true wether an item of a slice of strings contaings a string
+// or if the string contains the item
+func contains(list []string, string string) bool {
+	response := false
+	for _, item := range list {
+		if strings.Contains(item, string) || strings.Contains(string, item) {
+			response = true
+			break
+		}
+	}
+	return response
+}
+
+// Formats the output of WM_CLASS
+func getClass(classString string) string {
+	value := ""
+	isRepeated := false
+	for _, v := range strings.Split(classString, ".") {
+		if strings.EqualFold(v, value) {
+			if unicode.IsUpper(rune(v[0])) {
+				value = v
+			}
+			isRepeated = true
+			break
+		} else {
+			value = v
+		}
+	}
+	if !isRepeated {
+		value = classString
+	}
+	return value
+}
+
+// Function that checks if two window slices are equal
+func funcTestEq(first []window, second []window) bool {
+	if len(first) != len(second) {
+		return false
+	}
+	for i := range first {
+		if first[i].order != second[i].order {
+			return false
+		}
+	}
+	return true
+}
+
+// Function that creates and return a *gtk.Image from a resource and changes its size to a desired one
+func getGtkImageFromResource(resource string, width int, height int) *gtk.Image {
+	pixbuf := getPixBuf(funcGetResource(resource))
+	var gtkImage *gtk.Image
+	if width > 0 && height > 0 {
+		pixbufResized, _ := pixbuf.ScaleSimple(width, height, gdk.INTERP_HYPER)
+		gtkImage, _ = gtk.ImageNewFromPixbuf(pixbufResized)
+	} else {
+		gtkImage, _ = gtk.ImageNewFromPixbuf(pixbuf)
+	}
+	gtkImage.Show()
+	return gtkImage
+}
+
+// Function that returns a new instance of a *gtk.Builder based on UI content file
+func getNewBuilder() *gtk.Builder {
+	return func(builder *gtk.Builder, err error) *gtk.Builder {
+		return builder
+	}(gtk.BuilderNewFromString(uiFile))
+}
+
+//-------------------------------------------------- CALLBACKS GLOBAL HOTKEYS -------------------------------------------
+
+// Function to move between windows following the current order, it can go backwards or forwards
+func (mainGUI *MainGUI) moveNextWindow(backwards bool) {
+	fmt.Printf("(Callback) moveNextWindow(backwards: %t)\n", backwards)
+	result, currentWindow_ := mainGUI.xdotool.GetActiveWindow()
+	if result != 0 || int(currentWindow_) == 0 {
+		fmt.Println("ERROR OBTAINING CURRENT WINDOW, calling itself again")
+		mainGUI.moveNextWindow(backwards)
+	}
+	fmt.Printf("(Callback) currentWindow: %d\n", currentWindow_)
+	currentWindow := strconv.Itoa(int(currentWindow_))
+	if len(currentOrder) == 1 && currentWindow == currentOrder[0].id {
+		return
+	}
+	currentIndex := -1
+	var nextIndex int
+	for index, window := range currentOrder {
+		if window.id == currentWindow {
+			currentIndex = index
+			break
+		}
+	}
+	if backwards {
+		nextIndex = currentIndex - 1
+		if nextIndex < 0 {
+			nextIndex = len(currentOrder) - 1
+		}
+	} else {
+		nextIndex = currentIndex + 1
+		if nextIndex >= len(currentOrder) {
+			nextIndex = 0
+		}
+	}
+	isNextWindowValid := false
+	for _, windowActive := range listWindows(false) {
+		if strings.Contains(windowActive.class, mainGUI.application.GetApplicationID()) || windowActive.desktop == -1 {
+			continue
+		}
+		if windowActive.id == currentOrder[nextIndex].id {
+			isNextWindowValid = true
+			break
+		}
+	}
+	recursiveCall := false // Wether the function should call itself again
+	if isNextWindowValid {
+		fmt.Println("(Callback) Next window:", currentOrder[nextIndex])
+		// Activating window using xdotool lib
+		windowId, _ := strconv.Atoi(currentOrder[nextIndex].id)
+		mainGUI.xdotool.WindowActivate(goxdo.Window(windowId))
+		mainGUI.xdotool.WaitForWindowActivate(goxdo.Window(windowId), true)
+	} else {
+		fmt.Println("(Callback) Next window:", currentOrder[nextIndex], "IS NOT VALID")
+		recursiveCall = true
+		fmt.Println("\nCALLING FUNCTION AGAIN, TRIGGERED BY A RECURSIVE CALL")
+	}
+	if recursiveCall {
+		glib.IdleAdd(func() {
+			// Emit signal to delete invalid window
+			_, _ = mainGUI.application.Emit(signalDeleteRow, strconv.Itoa(nextIndex))
+			glib.IdleAdd(func() {
+				// When it's done deleting the window call itself again
+				mainGUI.moveNextWindow(backwards)
+			})
+		})
+	}
+}
+
+// Function to move to the next window (forwards). Callback of global hotkey
+func (mainGUI *MainGUI) moveForwards() {
+	if len(currentOrder) > 0 {
+		mainGUI.moveNextWindow(false)
+	}
+}
+
+// Function to move to the next window (backwards). Callback of global hotkey
+func (mainGUI *MainGUI) moveBackwards() {
+	if len(currentOrder) > 0 {
+		mainGUI.moveNextWindow(true)
+	}
+}

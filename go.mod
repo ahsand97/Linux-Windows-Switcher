@@ -10,8 +10,12 @@ require (
 	github.com/robotn/gohook v0.40.0
 )
 
+require golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
+
 require (
+	github.com/Xuanwo/go-locale v1.1.0
+	github.com/nicksnyder/go-i18n/v2 v2.2.0
 	github.com/spf13/afero v1.9.2 // indirect
 	github.com/vcaesar/keycode v0.10.0 // indirect
-	golang.org/x/text v0.3.8 // indirect
+	golang.org/x/text v0.3.8
 )

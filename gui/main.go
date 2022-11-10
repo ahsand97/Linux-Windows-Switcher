@@ -1,126 +1,155 @@
 package gui
 
 import (
-	"fmt"
-	"os/exec"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gotk3/gotk3/glib"
+
+	"linux-windows-switcher/libs/goxdo"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 )
 
-import (
-	"linux-windows-switcher/libs/goxdo"
-)
-
 type MainGUI struct {
-	getResource                func(resource string) []byte // Función que retorna el recurso especificado en un slice de bytes
 	application                *gtk.Application
 	builder                    *gtk.Builder
 	window                     *gtk.Window
-	contentTabVentanas         *contenTabVentanas
+	contentTabVentanas         *contentTabVentanas
 	contentTabAtajos           *contentTabAtajos
-	botonControlListener       *gtk.Button
-	labelBotonControlListener  *gtk.Label
-	imagenBotonControlListener *gtk.Image
+	buttonControlListener      *gtk.Button
+	labelButtonControlListener *gtk.Label
+	imageButtonControlListener *gtk.Image
 	xdotool                    *goxdo.Xdo
 }
 
-type ventana struct {
-	id     string
-	clase  string
-	titulo string
-	orden  int
+type window struct {
+	id      string
+	class   string
+	title   string
+	desktop int
+	order   int
+	icon    *gdk.Pixbuf
 }
 
 // Globals
 var (
-	mostrarVentana  bool
-	uiFile          string
-	icon            *gdk.Pixbuf // Icono por defecto de la aplicación
-	gtkImage        *gtk.Image  // Imagen de la cabecera
-	ordenActual     []ventana
-	ordenPorDefecto []ventana
-	listenerState   bool
-	awkFile         string
+	showWindow        bool
+	uiFile            string
+	defaultAppIcon    *gdk.Pixbuf // Default application's icon
+	headerBargtkImage *gtk.Image  // HeaderBar image
+	currentOrder      []window
+	defaultOrder      []window
+	listenerState     bool // State of global hotkey listener
 )
 
 // Constants
 const (
-	// Nombre de los resources
+	// Title
+	title = "Linux Windows Switcher"
+
+	// Resource's names
 	uiFileName           = "Application.xml"
 	iconFileName         = "tabs.png"
 	iconFileNameDisabled = "tabs-disabled.png"
-	consultaAwkFileName  = "consultaGetVentanasAbiertas.awk"
 
-	// Título de la aplicación
-	title = "Linux Windows Switcher"
+	// Signals of the application used
+	signalReboot            = "app-restart"
+	signalExit              = "app-exit"
+	signalGetConfig         = "app-get-config"
+	signalUpdateConfig      = "app-update-config"
+	signalControlListener   = "app-listener-keyboard"
+	signalSetOrder          = "app-set-order"
+	signalDeleteRow         = "app-delete-window-order"
+	signalGetStringResource = "app-get-string-resource"
 
-	// Nombres de las señales de la aplicación *gtk.Application usadas
-	signalReiniciar       = "app-reiniciar"
-	signalSalir           = "app-salir"
-	signalGetConfig       = "app-get-config"
-	signalUpdateConfig    = "app-update-config"
-	signalControlListener = "app-listener-keyboard"
-	signalEstablecerOrden = "app-establecer-orden"
-	signalDeleteRow       = "app-delete-window-order"
-
-	// Indice de las página del gtkNotebook para la configuración de atajos del teclado
-	pageContenidoAtajosTeclado = 1
+	// Page where the configuration of global hotkeys is
+	pageContentGlobalHotkeys = 1
 )
 
 // NewMainGUI Constructor MainGUI
-func NewMainGUI(application *gtk.Application, funcGetResource func(resource string) []byte, showWindow bool) *MainGUI {
-	mostrarVentana = showWindow
+func NewMainGUI(
+	application *gtk.Application,
+	showWindow_ bool,
+	funcGetResource_ func(resource string) []byte,
+	funcGetStringResource_ func(id string) string,
+) *MainGUI {
+	// Assign functions coming from main module
+	funcGetResource = funcGetResource_
+	funcGetStringResource = funcGetStringResource_
 
-	mainGui := &MainGUI{application: application, getResource: funcGetResource, xdotool: goxdo.NewXdo()}
-	uiFile = string(mainGui.getResource(uiFileName))
-	icon = getPixBuf(mainGui.getResource(iconFileName))
-	awkFile = string(mainGui.getResource(consultaAwkFileName))
-	mainGui.builder = mainGui.getNewBuilder()
+	// Fill global vars with their initial values
+	uiFile = string(funcGetResource(uiFileName))
+	defaultAppIcon = getPixBuf(funcGetResource(iconFileName))
 
+	// Window should be shown or not
+	showWindow = showWindow_
+
+	// Creation of main GUI struct
+	mainGui := &MainGUI{application: application, xdotool: goxdo.NewXdo()}
+	mainGui.builder = getNewBuilder()
+	mainGui.initLocale()
 	mainGui.setupUi()
+	mainGui.setIconsUI()
 	mainGui.contentTabVentanas = mainGui.newContentTabVentanas()
 	mainGui.contentTabAtajos = mainGui.newContentTabAtajos()
 	return mainGui
 }
 
-// Función de configuración
+// Config function to assign all UI strings to appropriate locale
+func (mainGUI *MainGUI) initLocale() {
+	obj, _ := mainGUI.builder.GetObject("labelTitleTabActiveWindows")
+	labelTitleTabActiveWindows := obj.(*gtk.Label)
+	labelTitleTabActiveWindows.SetMarkup(funcGetStringResource("gui_notebook_title_open_windows"))
+
+	obj, _ = mainGUI.builder.GetObject("labelTitleTabHotKeys")
+	labelTitleTabHotKeys := obj.(*gtk.Label)
+	labelTitleTabHotKeys.SetMarkup(funcGetStringResource("gui_notebook_title_hotkeys"))
+
+	obj, _ = mainGUI.builder.GetObject("labelButtonHideWindow")
+	labelButtonHideWindow := obj.(*gtk.Label)
+	labelButtonHideWindow.SetMarkup(funcGetStringResource("gui_label_button_hide_window"))
+
+	obj, _ = mainGUI.builder.GetObject("labelButtonRestart")
+	labelButtonRestart := obj.(*gtk.Label)
+	labelButtonRestart.SetMarkup(funcGetStringResource("restart"))
+
+	obj, _ = mainGUI.builder.GetObject("labelButtonExit")
+	labelButtonExit := obj.(*gtk.Label)
+	labelButtonExit.SetMarkup(funcGetStringResource("exit"))
+}
+
+// Config function
 func (mainGUI *MainGUI) setupUi() {
 	// Main window
 	obj, _ := mainGUI.builder.GetObject("mainWindow")
 	mainGUI.window = obj.(*gtk.Window)
 	mainGUI.window.SetApplication(mainGUI.application)
-	mainGUI.window.SetIcon(icon)
+	mainGUI.window.SetIcon(defaultAppIcon)
 	mainGUI.window.SetTitle(title)
-	mainGUI.window.HideOnDelete() // Añade evento para que la ventana se oculte y no se cierre la aplicación
+	mainGUI.window.HideOnDelete() // Avoid exit app when closing window
 
-	// Indica si el tamaño inicial de la ventana ya fue establecido (cuando se abre)
-	sizeInicialEstablecido := false
+	// It tells if the initial size of window is already set (when it opens for the first time)
+	initialSizeSet := false
 	mainGUI.window.Connect("show", func(window *gtk.Window) {
-		if !sizeInicialEstablecido {
-			// Se redimensiona la ventana a 1x1, así la obliga a obtener su tamaño mínimo permitido
-			window.Resize(1, 1)
-			sizeInicialEstablecido = true
+		if !initialSizeSet {
+			window.Resize(1, 1) // Resize window to 1x1, so it forces it to have its minimum allowed size
+			initialSizeSet = true
 		}
 	})
 
-	// Barra de título
+	// Title bar
 	obj, _ = mainGUI.builder.GetObject("headerBarMainWindow")
 	headerBar := obj.(*gtk.HeaderBar)
 
-	// Imagen que aparece al principio de la barra de título
-	gtkImage, _ = gtk.ImageNewFromPixbuf(func(pixbuf *gdk.Pixbuf, err error) *gdk.Pixbuf {
+	// Header Bar's image
+	headerBargtkImage, _ = gtk.ImageNewFromPixbuf(func(pixbuf *gdk.Pixbuf, err error) *gdk.Pixbuf {
 		return pixbuf
-	}(icon.ScaleSimple(25, 25, gdk.INTERP_HYPER)))
-	gtkImage.SetMarginTop(5)
-	gtkImage.SetMarginBottom(5)
+	}(defaultAppIcon.ScaleSimple(25, 25, gdk.INTERP_HYPER)))
+	headerBargtkImage.SetMarginTop(5)
+	headerBargtkImage.SetMarginBottom(5)
 
-	// EventBox que será el contenedor de gtkImage para poder recibir eventos
+	// Container of header bar's image so it can listen to events
 	eventBoxImageHeaderBar, _ := gtk.EventBoxNew()
 	eventBoxImageHeaderBar.Connect("button-release-event", func(box *gtk.EventBox, event *gdk.Event) bool {
 		eventButton := gdk.EventButtonNewFromEvent(event)
@@ -130,228 +159,159 @@ func (mainGUI *MainGUI) setupUi() {
 		return false
 	})
 
-	// Se añade gtkImage al contenedor eventBoxImageHeaderBar
-	eventBoxImageHeaderBar.Add(gtkImage)
-	// Se añade eventBoxImageHeaderBar al headerBar
+	// Add event box to image and then to header bar
+	eventBoxImageHeaderBar.Add(headerBargtkImage)
 	headerBar.Add(eventBoxImageHeaderBar)
 
-	// gtkNoteBook (Contenedor de los Tabs)
+	// *gtk.NoteBook Tab container
 	obj, _ = mainGUI.builder.GetObject("noteBookApp")
 	noteBookApp := obj.(*gtk.Notebook)
 	noteBookApp.Connect("switch-page", func(notebook *gtk.Notebook, page *gtk.Widget, pageNum int) {
-		if pageNum == pageContenidoAtajosTeclado {
-			if mainGUI.contentTabVentanas.expansor.GetExpanded() {
-				mainGUI.contentTabVentanas.expansor.Activate()
+		if pageNum == pageContentGlobalHotkeys {
+			if mainGUI.contentTabVentanas.expander.GetExpanded() {
+				mainGUI.contentTabVentanas.expander.Activate()
 			}
 		}
 	})
 
-	// Botón de control del Listener del Teclado
-	obj, _ = mainGUI.builder.GetObject("botonControlListener")
-	mainGUI.botonControlListener = obj.(*gtk.Button)
-	mainGUI.botonControlListener.Connect("clicked", func(button *gtk.Button) {
+	// Control button to manage the global hotkey listener
+	obj, _ = mainGUI.builder.GetObject("buttonControlListener")
+	mainGUI.buttonControlListener = obj.(*gtk.Button)
+	mainGUI.buttonControlListener.Connect("clicked", func(button *gtk.Button) {
 		go func() {
 			glib.IdleAdd(func() {
 				button.SetSensitive(false)
 			})
 			time.Sleep(time.Second / 2)
 			glib.IdleAdd(func() {
-				// Se emite la señal para iniciar/detener el listener del teclado
+				// Emit signal to start/stop the global hotkey listener
 				_, _ = mainGUI.application.Emit(signalControlListener, !listenerState, true)
 				button.SetSensitive(true)
 			})
 		}()
 	})
 
-	// Label del botón del control del Listener del Teclado
-	obj, _ = mainGUI.builder.GetObject("labelBotonControlListener")
-	mainGUI.labelBotonControlListener = obj.(*gtk.Label)
+	// Label of button that manages the global hotkey listener
+	obj, _ = mainGUI.builder.GetObject("labelButtonControlListener")
+	mainGUI.labelButtonControlListener = obj.(*gtk.Label)
 
-	// Imágen del botón del control del Listener del Teclado
-	obj, _ = mainGUI.builder.GetObject("imagenBotonControlListener")
-	mainGUI.imagenBotonControlListener = obj.(*gtk.Image)
+	// Image of button that manages the global hotkey listener
+	obj, _ = mainGUI.builder.GetObject("imageButtonControlListener")
+	mainGUI.imageButtonControlListener = obj.(*gtk.Image)
 
-	// Botón ocultar ventana
-	obj, _ = mainGUI.builder.GetObject("botonOcultarVentana")
-	botonOcultarVentana := obj.(*gtk.Button)
-	botonOcultarVentana.Connect("clicked", func(button *gtk.Button) {
+	// Hide window button
+	obj, _ = mainGUI.builder.GetObject("buttonHideWindow")
+	buttonHideWindow := obj.(*gtk.Button)
+	buttonHideWindow.Connect("clicked", func(button *gtk.Button) {
 		mainGUI.window.Hide()
 	})
 
-	// Botón reiniciar
-	obj, _ = mainGUI.builder.GetObject("botonReiniciar")
-	botonReiniciar := obj.(*gtk.Button)
-	botonReiniciar.Connect("clicked", func(button *gtk.Button) {
-		_, _ = mainGUI.application.Emit(signalReiniciar)
+	// Reboot button
+	obj, _ = mainGUI.builder.GetObject("buttonReboot")
+	buttonReboot := obj.(*gtk.Button)
+	buttonReboot.Connect("clicked", func(button *gtk.Button) {
+		_, _ = mainGUI.application.Emit(signalReboot)
 	})
 
-	// Botón salir
-	obj, _ = mainGUI.builder.GetObject("botonSalir")
-	botonSalir := obj.(*gtk.Button)
-	botonSalir.Connect("clicked", func(button *gtk.Button) {
-		_, _ = mainGUI.application.Emit(signalSalir)
+	// Exit button
+	obj, _ = mainGUI.builder.GetObject("buttonExit")
+	buttonExit := obj.(*gtk.Button)
+	buttonExit.Connect("clicked", func(button *gtk.Button) {
+		_, _ = mainGUI.application.Emit(signalExit)
 	})
 
-	// Si se pasó el parámetro --abrir cuando se abrió la aplicación se procede a mostrar la ventana
-	if mostrarVentana {
+	if showWindow {
 		mainGUI.window.ShowAll()
 	}
 }
 
-// Función que retorna una nueva instancia de un *gtk.Builder usando el
-// mismo archivo de definición de la interfaz
-func (mainGUI *MainGUI) getNewBuilder() *gtk.Builder {
-	return func(builder *gtk.Builder, err error) *gtk.Builder {
-		return builder
-	}(gtk.BuilderNewFromString(uiFile))
+// Config function to set all icons
+func (mainGUI *MainGUI) setIconsUI() {
+	// Image refresh classes button
+	obj, _ := mainGUI.builder.GetObject("imageRefreshClasses")
+	image := obj.(*gtk.Image)
+	image.SetFromPixbuf(getPixBufAtSize("refresh-pink.png", 24, 24))
+
+	// Image refresh windows button
+	obj, _ = mainGUI.builder.GetObject("imageRefreshWindows")
+	image = obj.(*gtk.Image)
+	image.SetFromPixbuf(getPixBufAtSize("refresh-green.png", 24, 24))
+
+	// Image restore default order button
+	obj, _ = mainGUI.builder.GetObject("imageRestoreDefaultOrder")
+	image = obj.(*gtk.Image)
+	image.SetFromPixbuf(getPixBufAtSize("restore.png", 24, 24))
+
+	// Image hide window button
+	obj, _ = mainGUI.builder.GetObject("imageHideWindow")
+	image = obj.(*gtk.Image)
+	image.SetFromPixbuf(getPixBufAtSize("hide_window.png", 24, 24))
+
+	// Image reset button
+	obj, _ = mainGUI.builder.GetObject("imageRestartApp")
+	image = obj.(*gtk.Image)
+	image.SetFromPixbuf(getPixBufAtSize("restart.png", 24, 24))
+
+	// Image exit button
+	obj, _ = mainGUI.builder.GetObject("imageExitApp")
+	image = obj.(*gtk.Image)
+	image.SetFromPixbuf(getPixBufAtSize("exit.png", 24, 24))
 }
 
-// Función que muestra un mensaje en un Gtk.MessageDialog
-func (mainGUI *MainGUI) mostrarMensajeDialog(messageType gtk.MessageType, msg string, msg2 string) {
+/*
+Function that shows a message using a *gtk.MessageDialog.
+
+Parameters:
+  - messageType: gtk.MessageType
+  - msg: Main message of dialog
+  - msg2: Secondary message
+*/
+func (mainGUI *MainGUI) showMessageDialog(messageType gtk.MessageType, msg string, msg2 string) {
 	dialog := gtk.MessageDialogNew(mainGUI.window, gtk.DIALOG_MODAL, messageType, gtk.BUTTONS_OK, msg)
 	if len(msg2) > 0 {
 		dialog.FormatSecondaryText(msg2)
 	}
 	dialog.SetPosition(gtk.WIN_POS_CENTER)
+	dialog.SetTransientFor(mainGUI.window)
 	dialog.SetTitle(title)
-	dialog.SetIcon(icon)
-	dialog.Connect("response", func(dialog *gtk.MessageDialog, response int) {
-		dialog.Destroy()
-	})
+	dialog.SetIcon(defaultAppIcon)
 	dialog.Run()
+	dialog.Destroy()
 }
 
-// PresentWindow Función expuesta wrapper del método gtk.Window.Present
+// Present Main Window
 func (mainGUI *MainGUI) PresentWindow() {
 	mainGUI.window.Present()
 }
 
-// UpdateListenerState Actualiza el estado del boolean listenerState
+// UpdateListenerState Updates global hotkey listener state
 func (mainGUI *MainGUI) UpdateListenerState(newState bool) {
 	listenerState = newState
-	if mainGUI != nil {
-		iconName := iconFileName
-		if !newState {
-			iconName = iconFileNameDisabled
-		}
-		icon = getPixBuf(mainGUI.getResource(iconName))
-		mainGUI.window.SetIcon(icon)
-		gtkImage.SetFromPixbuf(func(pixbuf *gdk.Pixbuf, err error) *gdk.Pixbuf {
-			return pixbuf
-		}(icon.ScaleSimple(25, 25, gdk.INTERP_HYPER)))
-
-		textLabel := "Desactivar Listener del Teclado"
-		if !newState {
-			textLabel = "Activar Listener del Teclado"
-		}
-		mainGUI.labelBotonControlListener.SetText(textLabel)
-
-		iconName = "emblem-unreadable"
-		if !newState {
-			iconName = "emblem-default"
-		}
-		mainGUI.imagenBotonControlListener.SetFromIconName(iconName, gtk.ICON_SIZE_BUTTON)
+	if mainGUI == nil {
+		return
 	}
-}
-
-// newVentana Constructor ventana
-func newVentana(id string, clase string, titulo string, orden int) *ventana {
-	ventana := &ventana{
-		id:     id,
-		clase:  clase,
-		titulo: titulo,
-		orden:  orden,
+	// Window icon
+	windowIconName := iconFileName
+	if !newState {
+		windowIconName = iconFileNameDisabled
 	}
-	return ventana
-}
-
-// GetTitle retorna el titulo de la aplicación
-func GetTitle() string {
-	return title
-}
-
-// Función que retorna un *gdk.Pixbuf a partur de un slice de bytes
-func getPixBuf(content []byte) *gdk.Pixbuf {
-	return func(pixbuf *gdk.Pixbuf, err error) *gdk.Pixbuf {
+	defaultAppIcon = getPixBuf(funcGetResource(windowIconName))
+	mainGUI.window.SetIcon(defaultAppIcon)
+	headerBargtkImage.SetFromPixbuf(func(pixbuf *gdk.Pixbuf, err error) *gdk.Pixbuf {
 		return pixbuf
-	}(gdk.PixbufNewFromBytesOnly(content))
-}
+	}(defaultAppIcon.ScaleSimple(25, 25, gdk.INTERP_HYPER)))
 
-//-------------------------------------------------- CALLBACKS ATAJOS DE TECLADO -------------------------------------------
-
-// Función para validar y activar el foco de la siguiente ventana (ya sea hacia adelante o hacia atrás)
-func (mainGUI *MainGUI) moveEntreVentanas(backwards bool) {
-	result, windowCurrent := mainGUI.xdotool.GetActiveWindow()
-	fmt.Printf("(Callback) moveEntreVentanas(%t)\n", backwards)
-	fmt.Printf("(Callback) ventanaActual: %d\n", windowCurrent)
-	if result != 0 || int(windowCurrent) == 0 {
-		fmt.Println("ERROR OBTENIENDO VENTANA ACTUAL, se llama de nuevo a la función")
-		mainGUI.moveEntreVentanas(backwards)
-	} else {
-		ventanaActual := strconv.Itoa(int(windowCurrent))
-		if len(ordenActual) == 1 && ventanaActual == ordenActual[0].id {
-			return
-		}
-		indexActual := -1
-		var indexSiguiente int
-		for index, ventana := range ordenActual {
-			if ventana.id == ventanaActual {
-				indexActual = index
-				break
-			}
-		}
-		if backwards {
-			indexSiguiente = indexActual - 1
-			if indexSiguiente < 0 {
-				indexSiguiente = len(ordenActual) - 1
-			}
-		} else {
-			indexSiguiente = indexActual + 1
-			if indexSiguiente >= len(ordenActual) {
-				indexSiguiente = 0
-			}
-		}
-		proximaVentanaIsValid := false
-		comando := "wmctrl -lx | awk --non-decimal-data '{if ($2 == \"-1\") { next; } printf \"%d\\n\", $1; }'"
-		res, _ := exec.Command("bash", "-c", comando).Output()
-		for _, v := range strings.Split(strings.TrimSuffix(string(res), "\n"), "\n") {
-			if v == ordenActual[indexSiguiente].id {
-				proximaVentanaIsValid = true
-				break
-			}
-		}
-		llamadoRecursivo := false
-		if proximaVentanaIsValid {
-			fmt.Println("(Callback) Próxima ventana:", ordenActual[indexSiguiente])
-			// Activación ventana por medio de xdotool
-			windowId, _ := strconv.Atoi(ordenActual[indexSiguiente].id)
-			mainGUI.xdotool.WindowActivate(goxdo.Window(windowId))
-			mainGUI.xdotool.WaitForWindowActivate(goxdo.Window(windowId), true)
-		} else {
-			fmt.Println("(Callback) Próxima ventana:", ordenActual[indexSiguiente], "no es válida")
-			llamadoRecursivo = true
-			fmt.Println("-------------------------------------------------------")
-			fmt.Println("ATAJO ACTIVADO por llamado recursivo")
-		}
-		if llamadoRecursivo {
-			glib.IdleAdd(func() {
-				_, _ = mainGUI.application.Emit(signalDeleteRow, strconv.Itoa(indexSiguiente))
-				mainGUI.moveEntreVentanas(backwards)
-			})
-		}
+	// Label of button
+	textLabel := funcGetStringResource("disable_keyboard_listener")
+	if !newState {
+		textLabel = funcGetStringResource("enable_keyboard_listener")
 	}
-}
+	mainGUI.labelButtonControlListener.SetMarkup(textLabel)
 
-// Función para avanzar a la ventana siguiente siguiendo el orden, es el callback del atajo "Avanzar a la ventana siguiente"
-func (mainGUI *MainGUI) avanzarDeVentana() {
-	if len(ordenActual) > 0 {
-		mainGUI.moveEntreVentanas(false)
+	// Icon of button
+	iconName := "stop-listener.png"
+	if !newState {
+		iconName = "start-listener.png"
 	}
-}
-
-// Función para retroceder a la ventana anterior siguiendo el orden, es el callback del atajo "Retroceder a la ventana anterior"
-func (mainGUI *MainGUI) retrocederDeVentana() {
-	if len(ordenActual) > 0 {
-		mainGUI.moveEntreVentanas(true)
-	}
+	mainGUI.imageButtonControlListener.SetFromPixbuf(getPixBufAtSize(iconName, 32, 32))
 }

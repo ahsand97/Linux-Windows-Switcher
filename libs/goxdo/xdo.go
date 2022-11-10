@@ -1,17 +1,16 @@
 package goxdo
 
-// #cgo pkg-config: libxdo
-// #include <xdo.h>
+//#cgo pkg-config: libxdo
+//#include <xdo.h>
 import "C"
 
-const CURRENTWINDOW = 0
-
 const (
-	MBUTTON_LEFT   = 1
-	MBUTTON_MIDDLE = 2
-	MBUTTON_RIGHT  = 3
-	MWHEELUP       = 4
-	MWHEELDOWN     = 5
+	CURRENTWINDOW = iota
+	MBUTTON_LEFT
+	MBUTTON_MIDDLE
+	MBUTTON_RIGHT
+	MWHEELUP
+	MWHEELDOWN
 )
 
 type Window int

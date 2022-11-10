@@ -12,25 +12,36 @@ type Indicator struct {
 
 var (
 	icons                 []string
-	opcionControlListener *gtk.MenuItem
+	optionControlListener *gtk.MenuItem
+	funcGetStringResource func(id string) string // Anonymous function that returns a string from the localizer
 )
 
 const (
-	// Nombres de las señales de la *gtk.Application usadas
-	signalAbrirVentanaPrincipal = "app-abrir-ventana"
-	signalReiniciar             = "app-reiniciar"
-	signalSalir                 = "app-salir"
-	signalControlListener       = "app-listener-keyboard"
+	// Signals used
+	signalOpenMainWindow  = "app-open-window"
+	signalReboot          = "app-restart"
+	signalExit            = "app-exit"
+	signalControlListener = "app-listener-keyboard"
 
-	// Indices de los íconos dentro del slice de iconos
+	// Index of icons inside slice "icons"
 	iconInactive = 0
 	iconActive   = 1
 )
 
 // NewAppIndicator Constructor AppIndicator
-func NewAppIndicator(application *gtk.Application, iconPaths []string, title string) *Indicator {
+func NewAppIndicator(
+	application *gtk.Application,
+	iconPaths []string,
+	title string,
+	funcGetStringResource_ func(id string) string,
+) *Indicator {
+	// Assign function coming from main module
+	funcGetStringResource = funcGetStringResource_
+
+	// Fill global vars with their initial values
 	icons = iconPaths
 
+	// Creation of indicator object
 	indicator := appindicator.New(
 		application.GetApplicationID(),
 		icons[iconInactive],
@@ -39,50 +50,56 @@ func NewAppIndicator(application *gtk.Application, iconPaths []string, title str
 	indicator.SetTitle(title)
 	indicator.SetStatus(appindicator.StatusActive)
 
+	// Creation of main struct to handle the appIndicator logic
 	indicator_ := &Indicator{application: application, indicator: indicator}
-
 	indicator_.setupIndicator()
 	return indicator_
 }
 
-// Función de configuración
+// Config function
 func (indicator *Indicator) setupIndicator() {
+	// appindicator menu
 	menu, _ := gtk.MenuNew()
 	defer menu.ShowAll()
 
-	abrirVentanaPrincipal, _ := gtk.MenuItemNewWithLabel("Abrir ventana Principal")
-	abrirVentanaPrincipal.Connect("activate", func(menuItem *gtk.MenuItem) {
-		_, _ = indicator.application.Emit(signalAbrirVentanaPrincipal)
+	openMainWindow, _ := gtk.MenuItemNewWithLabel(funcGetStringResource("indicator_menu_open_main_window"))
+	openMainWindow.Connect("activate", func(menuItem *gtk.MenuItem) {
+		_, _ = indicator.application.Emit(signalOpenMainWindow)
 	})
 
-	opcionControlListener, _ = gtk.MenuItemNewWithLabel("Activar Listener")
-	opcionControlListener.Connect("activate", func(menuItem *gtk.MenuItem) {
+	optionControlListener, _ = gtk.MenuItemNewWithLabel(funcGetStringResource("enable_keyboard_listener"))
+	optionControlListener.Connect("activate", func(menuItem *gtk.MenuItem) {
 		newState := false
-		if menuItem.GetLabel() == "Activar Listener" {
+		if menuItem.GetLabel() == funcGetStringResource("enable_keyboard_listener") {
 			newState = true
 		}
-		// Se emite la señal para iniciar/detener el listener del teclado
+		// Emit signal to start/stop the keyboard listener
 		_, _ = indicator.application.Emit(signalControlListener, newState, true)
 	})
 
-	reiniciarAplicacion, _ := gtk.MenuItemNewWithLabel("Reiniciar Aplicación")
-	reiniciarAplicacion.Connect("activate", func(menuItem *gtk.MenuItem) {
-		_, _ = indicator.application.Emit(signalReiniciar)
+	restartApp, _ := gtk.MenuItemNewWithLabel(funcGetStringResource("restart"))
+	restartApp.Connect("activate", func(menuItem *gtk.MenuItem) {
+		// Emit signal to restart  application
+		_, _ = indicator.application.Emit(signalReboot)
 	})
 
-	salir, _ := gtk.MenuItemNewWithLabel("Salir")
-	salir.Connect("activate", func(menuItem *gtk.MenuItem) {
-		_, _ = indicator.application.Emit(signalSalir)
+	exitApp, _ := gtk.MenuItemNewWithLabel(funcGetStringResource("exit"))
+	exitApp.Connect("activate", func(menuItem *gtk.MenuItem) {
+		// Emit signal to exit application
+		_, _ = indicator.application.Emit(signalExit)
 	})
 
-	menu.Add(abrirVentanaPrincipal)
-	menu.Add(opcionControlListener)
-	menu.Add(reiniciarAplicacion)
-	menu.Add(salir)
+	// Add subitems to appindicator menu
+	menu.Add(openMainWindow)
+	menu.Add(optionControlListener)
+	menu.Add(restartApp)
+	menu.Add(exitApp)
+
+	// Set menu to appindicator
 	indicator.indicator.SetMenu(menu)
 }
 
-// UpdateIconState Función que actualiza el icono del indicator
+// Update appindicator icon
 func (indicator *Indicator) UpdateIconState(newState bool) {
 	icon := icons[iconActive]
 	if !newState {
@@ -90,9 +107,9 @@ func (indicator *Indicator) UpdateIconState(newState bool) {
 	}
 	indicator.indicator.SetIcon(icon)
 
-	label := "Desactivar Listener"
+	label := funcGetStringResource("disable_keyboard_listener")
 	if !newState {
-		label = "Activar Listener"
+		label = funcGetStringResource("enable_keyboard_listener")
 	}
-	opcionControlListener.SetLabel(label)
+	optionControlListener.SetLabel(label)
 }

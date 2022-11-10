@@ -16,27 +16,29 @@ type ListenerKeyboard struct {
 	listenerState bool
 }
 
-type Atajo struct {
-	Nombre        string
-	Atajo         []string
-	AtajoKeyCodes []uint
-	Disabled      bool
-	Callback      func()
+type HotKey struct {
+	Name            string
+	HotKeys         []string
+	HotKeysKeyCodes []uint
+	Disabled        bool
+	Callback        func() // Callback func, it gets called when the HotKeys of the HotKey are pressed
 }
 
 const (
 	// Signals of application used
 	signalControlListener   = "app-listener-keyboard"
-	signalSetAtajos         = "app-listener-set-atajos"
+	signalSetHotKeys        = "app-listener-set-hotkeys"
 	signalSyncStateListener = "app-listener-sync-state"
 )
 
 var (
 	// Slice of global hotkey objects
-	atajos []*Atajo
+	hotKeys []*HotKey
 
 	// Pressed keys
-	teclas = map[uint16]bool{}
+	keys = map[uint16]bool{}
+	// Channel used to communicate with the goroutine listening to keyboard events
+	mainChannel = make(chan bool)
 )
 
 // NewListenerKeyBoard constructor
@@ -49,20 +51,20 @@ func NewListenerKeyBoard(application *gtk.Application) *ListenerKeyboard {
 
 // Configuration function
 func (listenerKeyboard *ListenerKeyboard) setupContentKeyboard() {
-	// Handler señal para el control del listener del teclado
+	// Handler of signal to manage the global hotkey listener
 	listenerKeyboard.application.Connect(
 		signalControlListener,
 		func(application *gtk.Application, active bool, updateCtrl bool) {
 			glib.IdleAdd(func() {
-				if updateCtrl {
+				if updateCtrl { // Wether the state should be reflected on the UI (Window and indicator)
 					listenerKeyboard.listenerState = !listenerKeyboard.listenerState
 					_, _ = listenerKeyboard.application.Emit(signalSyncStateListener, listenerKeyboard.listenerState)
 				}
-				if active { // Si se activa el listener se emite la señal para setear los atajos
-					_, _ = application.Emit(signalSetAtajos)
-				} else { // Si se desactiva el listener se vacía el mapa con las teclas presionadas
-					if len(teclas) > 0 {
-						teclas = map[uint16]bool{}
+				if active { // If listener is active a signal is emitted to set the global hotkeys
+					_, _ = application.Emit(signalSetHotKeys)
+				} else { // If listener is inactive the map containing the pressed keys gets cleaned
+					if len(keys) > 0 {
+						keys = map[uint16]bool{}
 					}
 				}
 				listenerKeyboard.active = active
@@ -70,53 +72,81 @@ func (listenerKeyboard *ListenerKeyboard) setupContentKeyboard() {
 		},
 	)
 	listenerKeyboard.startKeyboardListener()
+	mainChannel <- true
 }
 
 // Initializes the keyboard listener
 func (listenerKeyboard *ListenerKeyboard) startKeyboardListener() {
 	go func() {
-		var teclaDownOrHold uint16
-		channel := hook.Start()
-		for evento := range channel {
-			if (evento.Kind == hook.KeyDown || evento.Kind == hook.KeyHold) && listenerKeyboard.active {
-				// 2 events (KeyDown and KeyHold) for the same key can't be reported, one is ignored
-				if evento.Rawcode == teclaDownOrHold {
-					continue
+		listenerActive := false
+		for statListener := range mainChannel {
+			if !statListener {
+				if !listenerActive { // Listener already inactive
+					return
 				}
-				teclaDownOrHold = evento.Rawcode
-				teclas[evento.Rawcode] = true // Update the map to indicate the key is pressed
-				// Every time a key is pressed we check if the global hotkey was activated
-				verificaActivacionAtajo()
-			} else if evento.Kind == hook.KeyUp && listenerKeyboard.active {
-				teclas[evento.Rawcode] = false // Update the map to indicate the key is not pressed anymore
-				teclaDownOrHold = 0
-				// Delete all non-active entries from the map
-				for index, tecla := range teclas {
-					if !tecla {
-						delete(teclas, index)
+				listenerActive = false
+			} else {
+				if listenerActive { // Listener already active
+					return
+				}
+				go func() {
+					var teclaDownOrHold uint16
+					channel := hook.Start()
+					listenerActive = true
+					for evento := range channel {
+						if (evento.Kind == hook.KeyDown || evento.Kind == hook.KeyHold) && listenerKeyboard.active {
+							// 2 events (KeyDown and KeyHold) for the same key can't be reported, one is ignored
+							if evento.Rawcode == teclaDownOrHold {
+								continue
+							}
+							teclaDownOrHold = evento.Rawcode
+							keys[evento.Rawcode] = true // Update the map to indicate the key is pressed
+							// Every time a key is pressed we check if the global hotkey was activated
+							checkKeysPressed()
+						} else if (evento.Kind == hook.KeyUp) && listenerKeyboard.active {
+							keys[evento.Rawcode] = false // Update the map to indicate the key is not pressed anymore
+							teclaDownOrHold = 0
+							// Delete all non-active entries from the map
+							for index, key := range keys {
+								if !key {
+									delete(keys, index)
+								}
+							}
+						}
 					}
-				}
+				}()
 			}
 		}
 	}()
 }
 
+// Stop Keyboard Listener
 func ExitListener() {
+	defer func() {
+		err := recover()
+		if err == nil {
+			return
+		}
+		fmt.Println("RECOVER: ", err)
+	}()
+	mainChannel <- false
+	close(mainChannel)
 	hook.End()
 }
 
-// NewAtajo Constructor atajo
-func NewAtajo(nombre string, callback func()) *Atajo {
-	atajo := &Atajo{
-		Nombre:   nombre,
+// NewHotKey Constructor HotKey
+func NewHotKey(name string, callback func()) *HotKey {
+	hotkey := &HotKey{
+		Name:     name,
 		Disabled: false,
 		Callback: callback,
 	}
-	return atajo
+	return hotkey
 }
 
-func SetAtajos(atajosInput []*Atajo) {
-	atajos = atajosInput
+// SetHotKeys
+func SetHotKeys(hotKeysInput []*HotKey) {
+	hotKeys = hotKeysInput
 }
 
 // Function that checks if any global hotkey was pressed to trigger its callback
@@ -133,13 +163,12 @@ func allPressed(pressed map[uint16]bool, keys []uint) bool {
 }
 
 // Loop through the hotkeys to find out if any has been activated to trigger its callback
-func verificaActivacionAtajo() {
-	for _, atajo := range atajos {
+func checkKeysPressed() {
+	for _, hotKey := range hotKeys {
 		// If the global hotkey is not disabled and the keys are pressed its callback gets triggered
-		if !atajo.Disabled && allPressed(teclas, atajo.AtajoKeyCodes) {
-			fmt.Println("-------------------------------------------------------")
-			fmt.Printf("GLOBAL HOTKEY PRESSED: %s\n", atajo.Atajo)
-			atajo.Callback()
+		if !hotKey.Disabled && allPressed(keys, hotKey.HotKeysKeyCodes) {
+			fmt.Printf("\nGLOBAL HOTKEY PRESSED: %s\n", hotKey.HotKeys)
+			hotKey.Callback()
 			break
 		}
 	}

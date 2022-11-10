@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -9,17 +10,19 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bigkevmcd/go-configparser"
-	"github.com/chigopher/pathlib"
-	"github.com/gotk3/gotk3/glib"
-	"github.com/gotk3/gotk3/gtk"
-)
-
-import (
 	"linux-windows-switcher/appindicator"
 	"linux-windows-switcher/gui"
 	"linux-windows-switcher/keyboard"
 	"linux-windows-switcher/libs/glibown"
+	"linux-windows-switcher/libs/xlib"
+
+	"github.com/Xuanwo/go-locale"
+	"github.com/bigkevmcd/go-configparser"
+	"github.com/chigopher/pathlib"
+	"github.com/gotk3/gotk3/glib"
+	"github.com/gotk3/gotk3/gtk"
+	"github.com/nicksnyder/go-i18n/v2/i18n"
+	"golang.org/x/text/language"
 )
 
 // Main struct, it has the main components of the application
@@ -36,52 +39,65 @@ func newApplication(application *gtk.Application) *mainApplication {
 	return &mainApplication{application: application}
 }
 
-// This function is a setup where all the custom signals are created and their callbacks
+// This function is for configuration where all the custom signals are created and their callbacks.
 // Callback of "startup" signal of the application.
 func (app *mainApplication) startup() {
+	app.config = configparser.New()
 	if result, _ := configFile.IsFile(); result {
-		app.config, _ = configparser.NewConfigParserFromFile(configFile.String())
-	} else {
-		app.config = configparser.New()
+		config, err := configparser.NewConfigParserFromFile(configFile.String())
+		if err == nil {
+			app.config = config
+		}
 	}
 
-	// --------------------------------- SEÑALES DE LA APLICACIÓN -----------------------------
+	// --------------------------------- APPLICATION CUSTOM SIGNALS -----------------------------
 
-	// Señal para abrir la ventana principal
-	_, _ = glib.SignalNew("app-abrir-ventana")
+	// Signal to open main window
+	_, _ = glib.SignalNew("app-open-window")
 	// Handler
-	app.application.Connect("app-abrir-ventana", func(application *gtk.Application) {
+	app.application.Connect("app-open-window", func(application *gtk.Application) {
 		app.gui.PresentWindow()
 	})
 
-	// Señal para reiniciar la aplicación
-	_, _ = glib.SignalNew("app-reiniciar")
+	// Signal to restart application
+	_, _ = glib.SignalNew("app-restart")
 	// Handler
-	app.application.Connect("app-reiniciar", func(application *gtk.Application) {
+	app.application.Connect("app-restart", func(application *gtk.Application) {
 		application.Quit()
-		comando := fmt.Sprintf("'%s' %s", getPathExecutbale(false), strings.Join(os.Args[1:], " "))
-		_ = exec.Command("bash", "-c", comando).Start()
+		command := fmt.Sprintf("'%s' %s", getPathExecutbale(false), strings.Join(os.Args[1:], " "))
+		fmt.Println(command)
+		_ = exec.Command("bash", "-c", command).Start()
 	})
 
 	// Signal to close app
-	_, _ = glib.SignalNew("app-salir")
+	_, _ = glib.SignalNew("app-exit")
 	// Handler
-	app.application.Connect("app-salir", func(application *gtk.Application) {
+	app.application.Connect("app-exit", func(application *gtk.Application) {
 		keyboard.ExitListener()
+		xlib.CloseDisplay() // Close connection to X server
 		application.Quit()
 	})
 
 	// Signal to get data from config file
-	_, _ = glibown.SignalNewV("app-get-config", glib.TYPE_STRING, 2, glib.TYPE_STRING, glib.TYPE_STRING)
+	_, _ = glibown.SignalNewV(
+		"app-get-config",
+		glib.TYPE_STRING,
+		2,
+		glib.TYPE_STRING,
+		glib.TYPE_STRING,
+	)
 	// Handler
-	app.application.Connect("app-get-config", func(application *gtk.Application, section string, option string) string {
-		result := ""
-		if exists, _ := app.config.HasOption(section, option); exists {
-			result, _ = app.config.Get(section, option)
-			result = strings.ReplaceAll(result, " ", "")
-		}
-		return result
-	})
+	app.application.Connect(
+		"app-get-config",
+		func(application *gtk.Application, section string, option string) string {
+			result := ""
+			if exists, _ := app.config.HasOption(section, option); exists {
+				result, _ = app.config.Get(section, option)
+				result = strings.ReplaceAll(result, " ", "")
+			}
+			return result
+		},
+	)
 
 	// Signal to update config file
 	_, _ = glibown.SignalNewV(
@@ -104,20 +120,29 @@ func (app *mainApplication) startup() {
 	// Signal to synchronize the keyboard listener's state with the UI and AppIndicator
 	_, _ = glibown.SignalNewV("app-listener-sync-state", glib.TYPE_NONE, 1, glib.TYPE_BOOLEAN)
 	// Handler
-	app.application.Connect("app-listener-sync-state", func(application *gtk.Application, state bool) {
-		app.gui.UpdateListenerState(state)
-		app.appIndicator.UpdateIconState(state)
-	})
+	app.application.Connect(
+		"app-listener-sync-state",
+		func(application *gtk.Application, state bool) {
+			app.gui.UpdateListenerState(state)
+			app.appIndicator.UpdateIconState(state)
+		},
+	)
 
 	// Signal to manage the keyboard listener
-	_, _ = glibown.SignalNewV("app-listener-keyboard", glib.TYPE_NONE, 2, glib.TYPE_BOOLEAN, glib.TYPE_BOOLEAN)
+	_, _ = glibown.SignalNewV(
+		"app-listener-keyboard",
+		glib.TYPE_NONE,
+		2,
+		glib.TYPE_BOOLEAN,
+		glib.TYPE_BOOLEAN,
+	)
 
 	// Signal to stabligh the global hotkey
-	_, _ = glib.SignalNew("app-listener-set-atajos")
+	_, _ = glib.SignalNew("app-listener-set-hotkeys")
 
 	// Signal to stablish the new windows order
 	_, _ = glibown.SignalNewV(
-		"app-establecer-orden",
+		"app-set-order",
 		glib.TYPE_NONE,
 		3,
 		glib.TYPE_BOOLEAN,
@@ -130,6 +155,7 @@ func (app *mainApplication) startup() {
 }
 
 // Callback of signal "activate" of the application
+// This function initializes the UI and the app if it hasn't started yet otherwise it shows the main window
 func (app *mainApplication) activate() {
 	if app.gui == nil {
 		app.keyboardListener = keyboard.NewListenerKeyBoard(app.application)
@@ -137,8 +163,9 @@ func (app *mainApplication) activate() {
 			app.application,
 			[]string{iconFileDisabled.String(), iconFile.String()},
 			gui.GetTitle(),
+			getStringResource,
 		)
-		app.gui = gui.NewMainGUI(app.application, getResource, mostrarVentana)
+		app.gui = gui.NewMainGUI(app.application, showWindow, getResource, getStringResource)
 	} else {
 		app.gui.PresentWindow()
 	}
@@ -151,10 +178,12 @@ func (app *mainApplication) updateConfig(section string, option string, value st
 	return app.config.SaveWithDelimiter(configFile.String(), "=")
 }
 
-// Returns path of executable, if it's running via AppImage it returns the path of .AppImage file
-//
-// Param:
-//   - appimage:bool Whether to return the path of the .AppImage or not
+/*
+Function that returns path of executable.
+
+Parameter:
+  - appimage: Whether to return the path of the APPDIR if it's running from the .AppImage
+*/
 func getPathExecutbale(appimage bool) string {
 	pathExecutable := ""
 	if value, exists := os.LookupEnv("APPIMAGE"); exists {
@@ -179,10 +208,19 @@ func getResource(filename string) []byte {
 	}(resources.ReadFile(filepath.Join(resourcesFolderName, filename)))
 }
 
+// Returns a string using localizer
+func getStringResource(id string) string {
+	msg, err := localizer.LocalizeMessage(&i18n.Message{ID: id})
+	if err != nil {
+		return ""
+	}
+	return msg
+}
+
 // Constants
 const (
-	appId                = "ahsan.windows-switcher-gotk3"
-	configFileName       = "config.ini"
+	appId                = "ahsand97.linux-windows-switcher-gotk3"
+	configFileName       = "linux-windows-switcher-config.ini"
 	resourcesFolderName  = "resources"
 	iconFileName         = "tabs.png"
 	iconDisabledFileName = "tabs-disabled.png"
@@ -196,18 +234,88 @@ var (
 	configFile       *pathlib.Path
 	iconFile         *pathlib.Path
 	iconFileDisabled *pathlib.Path
-	mostrarVentana   = true
+	showWindow       = true
+	localizer        *i18n.Localizer
 )
+
+// Function that sets-up the locale configuration
+func initLocalization() {
+	// Default language
+	defaultLanguage := language.English
+
+	// Bundle
+	bundle := i18n.NewBundle(language.English)
+	bundle.RegisterUnmarshalFunc("json", json.Unmarshal)
+
+	// String resources
+	stringResources := map[language.Tag]string{}
+	stringResources[language.English] = "strings-en.json"
+	stringResources[language.Spanish] = "strings-es.json"
+	stringResources[language.French] = "strings-fr.json"
+
+	// Load string resources
+	for language, stringResource := range stringResources {
+		messageFile, _ := bundle.LoadMessageFileFS(resources, filepath.Join(resourcesFolderName, stringResource))
+		_ = bundle.AddMessages(language, messageFile.Messages...)
+	}
+
+	// Languages
+	languages := []string{}
+
+	// Get current locale
+	tag, _ := locale.Detect()
+	currentLanguage, _ := tag.Base()
+	currentLanguageStr := currentLanguage.String()
+	languages = append(languages, currentLanguageStr)
+
+	// Get all allowed locales
+	tags, _ := locale.DetectAll()
+	for _, tag_ := range tags {
+		lang, _ := tag_.Base()
+		if lang.String() == currentLanguage.String() {
+			continue
+		}
+		langStr := lang.String()
+		languages = append(languages, langStr)
+	}
+	defaultLanguageAdded := false
+	for _, lang := range languages {
+		if lang == defaultLanguage.String() {
+			defaultLanguageAdded = true
+			break
+		}
+	}
+	if !defaultLanguageAdded {
+		languages = append(languages, defaultLanguage.String())
+	}
+
+	// Supported languages
+	supportedLanguages := []string{}
+	for _, lang := range languages {
+		for tag := range stringResources {
+			if tag.String() == lang {
+				supportedLanguages = append(supportedLanguages, lang)
+				break
+			}
+		}
+	}
+
+	// New localizer to get strings based on locale language
+	localizer = i18n.NewLocalizer(bundle, supportedLanguages...)
+}
 
 func main() {
 	var args []string
 	for index, value := range os.Args {
 		if value == "--hide" {
-			mostrarVentana = false
+			showWindow = false
 		} else {
 			args = append(args, os.Args[index])
 		}
 	}
+
+	// Init Localization
+	initLocalization()
 
 	// App creation
 	application, err := gtk.ApplicationNew(appId, glib.APPLICATION_FLAGS_NONE)
@@ -215,6 +323,7 @@ func main() {
 		log.Fatal("An error occurred creating the application. ", err)
 	}
 
+	xlib.OpenDisplay()     // Open connection to X server
 	glib.SetPrgname(appId) // Setting the property "WM_CLASS"
 	configFile = pathlib.NewPath(getPathExecutbale(false)).Parent().Join(configFileName)
 	iconFile = pathlib.NewPath(getPathExecutbale(true)).Parent().Join(resourcesFolderName, iconFileName)
@@ -228,5 +337,4 @@ func main() {
 		mainApplication.activate()
 	})
 	mainApplication.application.Run(args)
-	// http://getfr.org/pub/dragonfly-release/usr-local-share/gtk-doc/html/libwnck-3.0/WnckWindow.html#wnck-window-get-icon FALTA
 }
