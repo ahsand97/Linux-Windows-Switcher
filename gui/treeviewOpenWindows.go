@@ -91,12 +91,18 @@ func (listaVentanas *listaVentanas) setupLista() {
 	obj, _ = listaVentanas.MainGUI.builder.GetObject("treeSelectionActiveWindows")
 	listaVentanas.treeSelectionActiveWindows = obj.(*gtk.TreeSelection)
 	// Handler of signal "changed", triggered when the visible selection of the *gtk.TreeView changes
+	currentlySelectedRow := -1
 	signalChangedSelection := listaVentanas.treeSelectionActiveWindows.Connect(
 		"changed",
 		func(selection *gtk.TreeSelection) {
 			if model, iter, ok := selection.GetSelected(); ok {
-				value, _ := model.ToTreeModel().GetValue(iter, columnExcluded)
+				value, _ := model.ToTreeModel().GetValue(iter, columnOrder)
 				goValue, _ := value.GoValue()
+				order := goValue.(int)
+				currentlySelectedRow = order
+
+				value, _ = model.ToTreeModel().GetValue(iter, columnExcluded)
+				goValue, _ = value.GoValue()
 				excluded := goValue.(bool)
 
 				value, _ = model.ToTreeModel().GetValue(iter, columnDeletedWindow)
@@ -109,20 +115,32 @@ func (listaVentanas *listaVentanas) setupLista() {
 		},
 	)
 
-	var pathItemRowInserted string // Path where new item was inserted
 	// Handler of signal "row-deleted". This signal is emitted when a row has been deleted (drag-n-drop)
+	// This signal is emitted after the signal "row-inserted" is emitted when drag-n-drop
 	listaVentanas.signalHandlerRowDeleted = listaVentanas.listStoreActiveWindows.Connect(
 		"row-deleted",
 		func(store *gtk.ListStore, path *gtk.TreePath) {
-			if len(pathItemRowInserted) > 0 && returnItemToInitialPos {
-				iter, err := store.GetIterFromString(pathItemRowInserted)
-				iter_, err_ := store.GetIter(path)
-				if err == nil && err_ == nil {
-					listaVentanas.treeSelectionActiveWindows.SelectIter(iter)
-					glib.IdleAdd(func() {
-						time.Sleep(time.Second / 2)
-						store.MoveBefore(iter, iter_)
-					})
+			if currentlySelectedRow != -1 && returnItemToInitialPos {
+				var iterItemToReturn *gtk.TreeIter
+				store.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
+					value, _ := model.GetValue(iter, columnOrder)
+					goValue, _ := value.GoValue()
+					order := goValue.(int)
+					if order == currentlySelectedRow {
+						iterItemToReturn = iter
+						return true
+					}
+					return false
+				})
+				if iterItemToReturn != nil {
+					iterPositionToReturn, err := store.GetIter(path)
+					if err == nil {
+						listaVentanas.treeSelectionActiveWindows.SelectIter(iterPositionToReturn)
+						glib.IdleAdd(func() {
+							time.Sleep(time.Second / 2)
+							store.MoveBefore(iterItemToReturn, iterPositionToReturn)
+						})
+					}
 				}
 			}
 			// Emit signal to stablish order
@@ -133,36 +151,22 @@ func (listaVentanas *listaVentanas) setupLista() {
 	listaVentanas.signalHandlerRowInserted = listaVentanas.listStoreActiveWindows.Connect(
 		"row-inserted",
 		func(store *gtk.ListStore, path *gtk.TreePath, iter *gtk.TreeIter) {
-			returnItemToInitialPos = false
-			var iterFirstexcludeWindow *gtk.TreeIter
-			amountOfItems := 0
+			returnItemToInitialPos = false         // Wether item should be returned to its initial position
+			var iterFirstExcludedRow *gtk.TreeIter // *gtk.Iter of first excluded row if any
 			store.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
 				value, _ := model.GetValue(iter, columnExcluded)
-				if valBoolean, err := value.GoValue(); err == nil {
-					if valBoolean.(bool) && iterFirstexcludeWindow == nil {
-						iterFirstexcludeWindow = iter
-					}
-				}
-				value, _ = model.GetValue(iter, columnOrder)
-				if valInt, err := value.GoValue(); err == nil {
-					if valInt.(int) != 0 {
-						amountOfItems++
-					}
+				goValue, _ := value.GoValue()
+				excluded := goValue.(bool)
+				if excluded && iterFirstExcludedRow == nil {
+					iterFirstExcludedRow = iter
+					return true // stop looping, first excluded row found
 				}
 				return false // loop through all items
 			})
-			pathItemRowInserted = path.String()
-			numericPath, _ := strconv.Atoi(pathItemRowInserted)
-			if numericPath == 0 {
-				numericPath++
-			} else if numericPath == amountOfItems {
-				numericPath--
-			}
-			pathItemRowInserted = strconv.Itoa(numericPath)
-			if iterFirstexcludeWindow != nil {
-				// If an item is moved below excluded items then the boolean "returnItemToInitialPos" is set to true
-				if pathPrimerItemExcluido, err := store.GetPath(iterFirstexcludeWindow); err == nil {
-					returnItemToInitialPos = path.String() > pathPrimerItemExcluido.String()
+			if iterFirstExcludedRow != nil {
+				// If an item was moved below the excluded items then the boolean "returnItemToInitialPos" is set to true
+				if pathFirstExcludedRow, err := store.GetPath(iterFirstExcludedRow); err == nil {
+					returnItemToInitialPos = path.String() > pathFirstExcludedRow.String()
 				}
 			} else {
 				// There's no excluded items, new item can be on desired position
@@ -203,21 +207,18 @@ func (listaVentanas *listaVentanas) setupLista() {
 						toolTipText := ""
 						if column.GetTitle() == funcGetStringResource("gui_treeview_column_class") {
 							value, _ := listaVentanas.listStoreActiveWindows.GetValue(iter, columnClass)
-							class, _ := value.GoValue()
-							toolTipText = strings.TrimPrefix(class.(string), prefixClonedWindow)
+							goValue, _ := value.GoValue()
+							class := goValue.(string)
+							toolTipText = strings.TrimPrefix(class, prefixClonedWindow)
 						} else if column.GetTitle() == funcGetStringResource("gui_treeview_column_title") {
 							value, _ := listaVentanas.listStoreActiveWindows.GetValue(iter, columnTitle)
-							title, _ := value.GoValue()
-							toolTipText = title.(string)
+							goValue, _ := value.GoValue()
+							title := goValue.(string)
+							toolTipText = title
 						}
 						if len(toolTipText) > 0 && cellRenderer != nil {
-							tooltip.SetMarkup(toolTipText)
-							view.SetTooltipCell(
-								tooltip,
-								path,
-								column,
-								&cellRenderer.CellRenderer,
-							)
+							tooltip.SetText(toolTipText)
+							view.SetTooltipCell(tooltip, path, column, &cellRenderer.CellRenderer)
 							return true
 						}
 					}
@@ -303,6 +304,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 			// Toggle handler
 			if handleToggle {
 				newVal := !excluded
+				excluded = newVal
 				_ = listaVentanas.listStoreActiveWindows.SetValue(iter, columnExcluded, newVal) // Set new value
 
 				glib.IdleAdd(func() {
@@ -325,22 +327,22 @@ func (listaVentanas *listaVentanas) setupLista() {
 						listaVentanas.listStoreActiveWindows.MoveBefore(iter, nil)
 					} else {
 						// Search for the first excluded *gtk.Iter (window)
-						var iterFirstexcludeWindow *gtk.TreeIter
+						var iterFirstExcludedRow *gtk.TreeIter
 						listaVentanas.listStoreActiveWindows.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
 							// Value comun excluded
 							value, _ = model.GetValue(iter, columnExcluded)
 							goValue, _ = value.GoValue()
-							excluded = goValue.(bool)
+							excluded_ := goValue.(bool)
 
-							if excluded {
-								iterFirstexcludeWindow = iter
+							if excluded_ {
+								iterFirstExcludedRow = iter
 								return true
 							}
 							return false
 						})
 						// Move iter below the first excluded item if exists, otherwise move to the end of *gtk.TreeView
-						if iterFirstexcludeWindow != nil {
-							listaVentanas.listStoreActiveWindows.MoveBefore(iter, iterFirstexcludeWindow)
+						if iterFirstExcludedRow != nil {
+							listaVentanas.listStoreActiveWindows.MoveBefore(iter, iterFirstExcludedRow)
 						}
 					}
 					// Emit signal to stablish order, a window was excluded/included
@@ -350,7 +352,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 
 			// Make *gtk.TreeView reorderable and unblock signal when selection changes
 			listaVentanas.treeSelectionActiveWindows.HandlerUnblock(signalChangedSelection)
-			listaVentanas.treeViewActiveWindows.SetReorderable(!(excluded && deleted))
+			listaVentanas.treeViewActiveWindows.SetReorderable(!(excluded || deleted))
 		},
 	)
 
@@ -371,6 +373,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 
 	// Anonymous function that takes off the visible selection of the *gtk.TreeView
 	functakeOffSelection := func() {
+		currentlySelectedRow = -1
 		amountOfItems := 0
 		listaVentanas.listStoreActiveWindows.ForEach(
 			func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {

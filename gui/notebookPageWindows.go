@@ -48,7 +48,7 @@ func (contentTabVentanas *contentTabVentanas) initLocale() {
 	obj, _ := contentTabVentanas.MainGUI.builder.GetObject("expanderLabel")
 	expanderLabel := obj.(*gtk.Label)
 	expanderLabel.SetMarkup(funcGetStringResource("gui_expander_label"))
-	expanderLabel.SetTooltipMarkup(funcGetStringResource("gui_expander_label_tooltip"))
+	expanderLabel.SetTooltipText(funcGetStringResource("gui_expander_label_tooltip"))
 
 	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelTitleListBoxActiveWindowClasses")
 	labelTitleListBoxActiveWindowClasses := obj.(*gtk.Label)
