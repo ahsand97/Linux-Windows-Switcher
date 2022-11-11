@@ -101,6 +101,6 @@ AppDir:
       use_host_x: true
 
 AppImage:
-  update-information: gh-releases-zsync|ahsand97|Linux-Windows-Switcher|latest|*x86_64.AppImage.zsync
+  update-information: 'None'
   sign-key: 'None'
   arch: x86_64
