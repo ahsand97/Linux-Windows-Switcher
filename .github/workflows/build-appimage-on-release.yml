@@ -20,6 +20,6 @@ jobs:
         with:
           recipe: ./generate_appImage/AppImageBuilder.yml
       - name: Upload assets to release
-        uses: ahsand97/upload-assets-to-release-with-go@v0.1.0
+        uses: ahsand97/upload-assets-to-release-with-go@v0.1.1
         with:
           files: '["*AppImage*"]'
