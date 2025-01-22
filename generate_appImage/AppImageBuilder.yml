@@ -1,15 +1,16 @@
 version: 1
 script:
   # Remove any previous build
-  - rm -rf /AppImageOutputDir/AppDir | true
+  - export APPDIR_DIRECTORY=$(pwd)/AppDir
+  - rm -rf $APPDIR_DIRECTORY | true
   # Make usr and icons dirs
-  - mkdir -p /AppImageOutputDir/AppDir/usr/src/resources
-  - mkdir -p /AppImageOutputDir/AppDir/usr/share/icons/hicolor/512x512/apps
+  - mkdir -p $APPDIR_DIRECTORY/usr/src/resources
+  - mkdir -p $APPDIR_DIRECTORY/usr/share/icons/hicolor/512x512/apps
   # Copy the AppIndicator icons into the AppDir/usr/src/resources folder
-  - cp $GITHUB_WORKSPACE/resources/tabs.png /AppImageOutputDir/AppDir/usr/src/resources
-  - cp $GITHUB_WORKSPACE/resources/tabs-disabled.png /AppImageOutputDir/AppDir/usr/src/resources
+  - cp $GITHUB_WORKSPACE/resources/tabs.png $APPDIR_DIRECTORY/usr/src/resources
+  - cp $GITHUB_WORKSPACE/resources/tabs-disabled.png $APPDIR_DIRECTORY/usr/src/resources
   # Icon for the .AppImage file
-  - cp $GITHUB_WORKSPACE/resources/tabs-desktop.png /AppImageOutputDir/AppDir/usr/share/icons/hicolor/512x512/apps
+  - cp $GITHUB_WORKSPACE/resources/tabs-desktop.png $APPDIR_DIRECTORY/usr/share/icons/hicolor/512x512/apps
   # Install dependencies to build application
   - export DEBIAN_FRONTEND=noninteractive
   - apt update
@@ -25,16 +26,16 @@ script:
   - export PATH=$GOPATH/bin:$PATH
   # Build Application
   - cd $GITHUB_WORKSPACE
-  - go build -v -mod=readonly -o /AppImageOutputDir/AppDir/usr/src/linux-windows-switcher -tags glib_2_66,pango_1_42 *.go
+  - go build -v -mod=readonly -o $APPDIR_DIRECTORY/usr/src/linux-windows-switcher -tags glib_2_66,pango_1_42 *.go
 AppDir:
-  path: /AppImageOutputDir/AppDir
+  path: ./AppDir
 
   app_info:
     id: ahsan-appimages.gtk3-linux-windows-switcher
     name: Linux Windows Switcher
     icon: tabs-desktop # application-vnd.appimage can be used if want to set default icon for .AppImage file
     version: 1.0.0
-    exec: /AppImageOutputDir/AppDir/usr/src/linux-windows-switcher
+    exec: $APPDIR/usr/src/linux-windows-switcher
     # Set the application main script path as argument. Use '$@' to forward CLI parameters
     exec_args: '$@'
 
