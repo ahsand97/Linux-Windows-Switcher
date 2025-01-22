@@ -32,6 +32,7 @@
     "gui_treeview_prefix_cloned_window": "cloned",
     "gui_treeview_prefix_closed_window": "closed",
     "gui_treeview_context_menu_clone": "Clone",
+    "gui_treeview_context_menu_change_window_title": "Change window title",
     "gui_treeview_column_class": "Class",
     "gui_treeview_column_title": "Title",
     "gui_treeview_column_exclude": "Exclude",
@@ -53,5 +54,11 @@
     "gui_explanation_global_hotkeys": "List of global hotkeys. To change the key combination of a hotkey or disable it use its respective buttons.",
     "gui_config_hotkey_title": "Key Combination",
     "gui_config_hotkey_label": "Configuring hotkey",
-    "gui_config_hotkey_label_info": "Press the preferred key combination (max. %d keys) to assign to the hotkey."
+    "gui_config_hotkey_label_info": "Press the preferred key combination (max. %d keys) to assign to the hotkey.",
+    "gui_change_window_title_label_info": "Sets a new title for the window.\nThis will also affect any cloned window matching the window's id.",
+    "gui_change_window_title_current_title": "Current Title",
+    "gui_change_window_title_new_title": "New Title",
+    "invalid_new_window_title": "The new title must not contain any leading or trailing spaces.",
+    "error_changing_window_title": "An error occurred changing the window title, try again.",
+    "error_new_title_equals_current_title": "The new title is equal to the current one."
 }

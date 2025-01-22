@@ -5,7 +5,7 @@ import (
 
 	"github.com/gotk3/gotk3/glib"
 
-	"linux-windows-switcher/libs/goxdo"
+	"linux-windows-switcher/libs/xlib"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
@@ -20,7 +20,6 @@ type MainGUI struct {
 	buttonControlListener      *gtk.Button
 	labelButtonControlListener *gtk.Label
 	imageButtonControlListener *gtk.Image
-	xdotool                    *goxdo.Xdo
 }
 
 type window struct {
@@ -38,6 +37,7 @@ var (
 	uiFile            string
 	defaultAppIcon    *gdk.Pixbuf // Default application's icon
 	headerBargtkImage *gtk.Image  // HeaderBar image
+	currentIndex      int         = 0
 	currentOrder      []window
 	defaultOrder      []window
 	listenerState     bool // State of global hotkey listener
@@ -54,14 +54,13 @@ const (
 	iconFileNameDisabled = "tabs-disabled.png"
 
 	// Signals of the application used
-	signalReboot            = "app-restart"
-	signalExit              = "app-exit"
-	signalGetConfig         = "app-get-config"
-	signalUpdateConfig      = "app-update-config"
-	signalControlListener   = "app-listener-keyboard"
-	signalSetOrder          = "app-set-order"
-	signalDeleteRow         = "app-delete-window-order"
-	signalGetStringResource = "app-get-string-resource"
+	signalReboot          = "app-restart"
+	signalExit            = "app-exit"
+	signalGetConfig       = "app-get-config"
+	signalUpdateConfig    = "app-update-config"
+	signalControlListener = "app-listener-keyboard"
+	signalSetOrder        = "app-set-order"
+	signalDeleteRow       = "app-delete-window-order"
 
 	// Page where the configuration of global hotkeys is
 	pageContentGlobalHotkeys = 1
@@ -86,8 +85,7 @@ func NewMainGUI(
 	showWindow = showWindow_
 
 	// Creation of main GUI struct
-	mainGui := &MainGUI{application: application, xdotool: goxdo.NewXdo()}
-	mainGui.builder = getNewBuilder()
+	mainGui := &MainGUI{application: application, builder: getNewBuilder()}
 	mainGui.initLocale()
 	mainGui.setupUi()
 	mainGui.setIconsUI()
@@ -142,7 +140,7 @@ func (mainGUI *MainGUI) setupUi() {
 	obj, _ = mainGUI.builder.GetObject("headerBarMainWindow")
 	headerBar := obj.(*gtk.HeaderBar)
 
-	// Header Bar's image
+	// Header bar's image
 	headerBargtkImage, _ = gtk.ImageNewFromPixbuf(func(pixbuf *gdk.Pixbuf, err error) *gdk.Pixbuf {
 		return pixbuf
 	}(defaultAppIcon.ScaleSimple(25, 25, gdk.INTERP_HYPER)))
@@ -154,7 +152,7 @@ func (mainGUI *MainGUI) setupUi() {
 	eventBoxImageHeaderBar.Connect("button-release-event", func(box *gtk.EventBox, event *gdk.Event) bool {
 		eventButton := gdk.EventButtonNewFromEvent(event)
 		if eventButton.Button() == gdk.BUTTON_PRIMARY {
-			mainGUI.xdotool.ClickWindow(goxdo.CURRENTWINDOW, goxdo.MBUTTON_RIGHT)
+			xlib.ClickWindow(xlib.CURRENTWINDOW, xlib.MBUTTON_RIGHT)
 		}
 		return false
 	})
@@ -179,13 +177,11 @@ func (mainGUI *MainGUI) setupUi() {
 	mainGUI.buttonControlListener = obj.(*gtk.Button)
 	mainGUI.buttonControlListener.Connect("clicked", func(button *gtk.Button) {
 		go func() {
-			glib.IdleAdd(func() {
-				button.SetSensitive(false)
-			})
+			glib.IdleAdd(func() { button.SetSensitive(false) })
 			time.Sleep(time.Second / 2)
 			glib.IdleAdd(func() {
 				// Emit signal to start/stop the global hotkey listener
-				_, _ = mainGUI.application.Emit(signalControlListener, !listenerState, true)
+				_, _ = mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, !listenerState, true)
 				button.SetSensitive(true)
 			})
 		}()
@@ -202,23 +198,23 @@ func (mainGUI *MainGUI) setupUi() {
 	// Hide window button
 	obj, _ = mainGUI.builder.GetObject("buttonHideWindow")
 	buttonHideWindow := obj.(*gtk.Button)
-	buttonHideWindow.Connect("clicked", func(button *gtk.Button) {
-		mainGUI.window.Hide()
-	})
+	buttonHideWindow.Connect("clicked", func(button *gtk.Button) { mainGUI.window.Hide() })
 
 	// Reboot button
 	obj, _ = mainGUI.builder.GetObject("buttonReboot")
 	buttonReboot := obj.(*gtk.Button)
-	buttonReboot.Connect("clicked", func(button *gtk.Button) {
-		_, _ = mainGUI.application.Emit(signalReboot)
-	})
+	buttonReboot.Connect(
+		"clicked",
+		func(button *gtk.Button) { _, _ = mainGUI.application.Emit(signalReboot, glib.TYPE_NONE) },
+	)
 
 	// Exit button
 	obj, _ = mainGUI.builder.GetObject("buttonExit")
 	buttonExit := obj.(*gtk.Button)
-	buttonExit.Connect("clicked", func(button *gtk.Button) {
-		_, _ = mainGUI.application.Emit(signalExit)
-	})
+	buttonExit.Connect(
+		"clicked",
+		func(button *gtk.Button) { _, _ = mainGUI.application.Emit(signalExit, glib.TYPE_NONE) },
+	)
 
 	if showWindow {
 		mainGUI.window.ShowAll()
@@ -267,9 +263,9 @@ Parameters:
   - msg2: Secondary message
 */
 func (mainGUI *MainGUI) showMessageDialog(messageType gtk.MessageType, msg string, msg2 string) {
-	dialog := gtk.MessageDialogNew(mainGUI.window, gtk.DIALOG_MODAL, messageType, gtk.BUTTONS_OK, msg)
+	dialog := gtk.MessageDialogNew(mainGUI.window, gtk.DIALOG_MODAL, messageType, gtk.BUTTONS_OK, "%s", msg)
 	if len(msg2) > 0 {
-		dialog.FormatSecondaryText(msg2)
+		dialog.FormatSecondaryText("%s", msg2)
 	}
 	dialog.SetPosition(gtk.WIN_POS_CENTER)
 	dialog.SetTransientFor(mainGUI.window)
@@ -279,7 +275,7 @@ func (mainGUI *MainGUI) showMessageDialog(messageType gtk.MessageType, msg strin
 	dialog.Destroy()
 }
 
-// Present Main Window
+// PresentWindow Present Main Window
 func (mainGUI *MainGUI) PresentWindow() {
 	mainGUI.window.Present()
 }

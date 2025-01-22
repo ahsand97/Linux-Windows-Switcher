@@ -16,7 +16,7 @@ import (
 )
 
 type listaVentanas struct {
-	contentTabVentanas
+	contentTabVentanas         contentTabVentanas
 	listStoreActiveWindows     *gtk.ListStore
 	treeViewActiveWindows      *gtk.TreeView
 	treeSelectionActiveWindows *gtk.TreeSelection
@@ -69,26 +69,26 @@ func (listaVentanas *listaVentanas) initLocale() {
 		funcGetStringResource("gui_treeview_prefix_closed_window"),
 	)
 
-	obj, _ := listaVentanas.MainGUI.builder.GetObject("columnClass")
+	obj, _ := listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("columnClass")
 	columnClass_ := obj.(*gtk.TreeViewColumn)
 	columnClass_.SetTitle(funcGetStringResource("gui_treeview_column_class"))
 
-	obj, _ = listaVentanas.MainGUI.builder.GetObject("columnTitle")
+	obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("columnTitle")
 	columnTitle_ := obj.(*gtk.TreeViewColumn)
 	columnTitle_.SetTitle(funcGetStringResource("gui_treeview_column_title"))
 
-	obj, _ = listaVentanas.MainGUI.builder.GetObject("columnExclude")
+	obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("columnExclude")
 	columnExclude_ := obj.(*gtk.TreeViewColumn)
 	columnExclude_.SetTitle(funcGetStringResource("gui_treeview_column_exclude"))
 }
 
 // Config function
 func (listaVentanas *listaVentanas) setupLista() {
-	obj, _ := listaVentanas.MainGUI.builder.GetObject("modelActiveWindows")
+	obj, _ := listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("modelActiveWindows")
 	listaVentanas.listStoreActiveWindows = obj.(*gtk.ListStore)
 
 	returnItemToInitialPos := false // wether an item should be returned to its initial pos
-	obj, _ = listaVentanas.MainGUI.builder.GetObject("treeSelectionActiveWindows")
+	obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("treeSelectionActiveWindows")
 	listaVentanas.treeSelectionActiveWindows = obj.(*gtk.TreeSelection)
 	// Handler of signal "changed", triggered when the visible selection of the *gtk.TreeView changes
 	currentlySelectedRow := -1
@@ -109,7 +109,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 				goValue, _ = value.GoValue()
 				deleted := goValue.(bool)
 
-				listaVentanas.treeViewActiveWindows.SetReorderable(!(excluded || deleted))
+				listaVentanas.treeViewActiveWindows.SetReorderable(!excluded && !deleted)
 				returnItemToInitialPos = excluded || deleted
 			}
 		},
@@ -144,7 +144,13 @@ func (listaVentanas *listaVentanas) setupLista() {
 				}
 			}
 			// Emit signal to stablish order
-			_, _ = listaVentanas.MainGUI.application.Emit(signalSetOrder, true, false, true)
+			_, _ = listaVentanas.contentTabVentanas.mainGUI.application.Emit(
+				signalSetOrder,
+				glib.TYPE_NONE,
+				true,
+				false,
+				true,
+			)
 		},
 	)
 	// Handler of signal "row-inserted". This signal is emitted when a row has been inserted (drag-n-drop)
@@ -175,7 +181,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 		},
 	)
 
-	obj, _ = listaVentanas.MainGUI.builder.GetObject("treeViewActiveWindows")
+	obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("treeViewActiveWindows")
 	listaVentanas.treeViewActiveWindows = obj.(*gtk.TreeView)
 	_ = listaVentanas.treeViewActiveWindows.SetProperty("has-tooltip", true)
 	/*
@@ -198,9 +204,9 @@ func (listaVentanas *listaVentanas) setupLista() {
 						// *gtk.CellRendererText where to show the tooltip
 						var obj glib.IObject
 						if column.GetTitle() == funcGetStringResource("gui_treeview_column_class") {
-							obj, _ = listaVentanas.MainGUI.builder.GetObject("Class")
+							obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("Class")
 						} else if column.GetTitle() == funcGetStringResource("gui_treeview_column_title") {
-							obj, _ = listaVentanas.MainGUI.builder.GetObject("Title")
+							obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("Title")
 						}
 						cellRenderer := obj.(*gtk.CellRendererText)
 
@@ -234,7 +240,12 @@ func (listaVentanas *listaVentanas) setupLista() {
 	listaVentanas.treeViewActiveWindows.Connect("drag-begin", func(view *gtk.TreeView, ctx *gdk.DragContext) {
 		originalListenerState = listenerState
 		// Emit signal to stop global hotkey listener
-		_, _ = listaVentanas.MainGUI.application.Emit(signalControlListener, false, false)
+		_, _ = listaVentanas.contentTabVentanas.mainGUI.application.Emit(
+			signalControlListener,
+			glib.TYPE_NONE,
+			false,
+			false,
+		)
 
 		// Get selected row
 		if model, iter, ok := listaVentanas.treeSelectionActiveWindows.GetSelected(); ok {
@@ -254,7 +265,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 				if valInt, err := value.GoValue(); err == nil {
 					if valInt.(int) == idRowSelected {
 						iterRowDesiredToSelect = iter
-						return true
+						return true // stop looping
 					}
 				}
 				return false
@@ -269,11 +280,16 @@ func (listaVentanas *listaVentanas) setupLista() {
 		}
 		returnItemToInitialPos = false
 		// Emit signal to start global hotkey listener
-		_, _ = listaVentanas.MainGUI.application.Emit(signalControlListener, originalListenerState, false)
+		_, _ = listaVentanas.contentTabVentanas.mainGUI.application.Emit(
+			signalControlListener,
+			glib.TYPE_NONE,
+			originalListenerState,
+			false,
+		)
 	})
 
 	excludeWindow := false // Wether a window should be excluded or not (cuz it's invalid)
-	obj, _ = listaVentanas.MainGUI.builder.GetObject("cellRenderExclude")
+	obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("cellRenderExclude")
 	cellRendererToglleColumnExcluded := obj.(*gtk.CellRendererToggle)
 	// Handler of signal "toggled". This signal is emitted when selecting the column "exclude" on a row on the *gtk.TreeView
 	// or directly emitting the signal
@@ -297,10 +313,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 			goValue, _ = value.GoValue()
 			deleted := goValue.(bool)
 
-			handleToggle := true
-			if excluded && deleted {
-				handleToggle = false // If window is already excluded and deleted then no toggle
-			}
+			handleToggle := !excluded || !deleted // If window is already excluded and deleted then no toggle
 			// Toggle handler
 			if handleToggle {
 				newVal := !excluded
@@ -329,7 +342,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 						// Search for the first excluded *gtk.Iter (window)
 						var iterFirstExcludedRow *gtk.TreeIter
 						listaVentanas.listStoreActiveWindows.ForEach(func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
-							// Value comun excluded
+							// Value column excluded
 							value, _ = model.GetValue(iter, columnExcluded)
 							goValue, _ = value.GoValue()
 							excluded_ := goValue.(bool)
@@ -346,13 +359,19 @@ func (listaVentanas *listaVentanas) setupLista() {
 						}
 					}
 					// Emit signal to stablish order, a window was excluded/included
-					_, _ = listaVentanas.MainGUI.application.Emit(signalSetOrder, true, updateDefaultOrder, true)
+					_, _ = listaVentanas.contentTabVentanas.mainGUI.application.Emit(
+						signalSetOrder,
+						glib.TYPE_NONE,
+						true,
+						updateDefaultOrder,
+						true,
+					)
 				})
 			}
 
 			// Make *gtk.TreeView reorderable and unblock signal when selection changes
 			listaVentanas.treeSelectionActiveWindows.HandlerUnblock(signalChangedSelection)
-			listaVentanas.treeViewActiveWindows.SetReorderable(!(excluded || deleted))
+			listaVentanas.treeViewActiveWindows.SetReorderable(!excluded && !deleted)
 		},
 	)
 
@@ -361,7 +380,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 		if eventKey.KeyVal() == gdk.KEY_Return {
 			if model, iter, ok := listaVentanas.treeSelectionActiveWindows.GetSelected(); ok {
 				path, _ := model.ToTreeModel().GetPath(iter)
-				_, _ = cellRendererToglleColumnExcluded.Emit("toggled", path.String())
+				_, _ = cellRendererToglleColumnExcluded.Emit("toggled", glib.TYPE_NONE, path.String())
 				return true // Stop propagation of event (default behaviour)
 			}
 		}
@@ -437,7 +456,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 						deleted := goValue.(bool)
 
 						if !excluded || (excluded && cloned || excluded && deleted) {
-							listaVentanas.createContextMenuTreeview(iter, !(cloned || deleted), eventButton.Event)
+							listaVentanas.createContextMenuTreeview(iter, !cloned && !deleted, eventButton.Event)
 							disableContextMenu = false
 						}
 					}
@@ -467,9 +486,10 @@ func (listaVentanas *listaVentanas) setupLista() {
 	// Signal to set boolean "showContextMenu" to false
 	_, _ = glib.SignalNew("disable-context-menu")
 	// Handler
-	listaVentanas.treeViewActiveWindows.Connect("disable-context-menu", func(view *gtk.TreeView) {
-		showContextMenu = false
-	})
+	listaVentanas.treeViewActiveWindows.Connect(
+		"disable-context-menu",
+		func(view *gtk.TreeView) { showContextMenu = false },
+	)
 
 	// Bold font in the *gtk.TreeView header
 	cssProvider, _ := gtk.CssProviderNew()
@@ -478,7 +498,7 @@ func (listaVentanas *listaVentanas) setupLista() {
 	gtk.AddProviderForScreen(screen, cssProvider, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
 	// Handler of signal "app-set-order", it sets the current/default order based on the *gtk.TreeView of active windows
-	listaVentanas.MainGUI.application.Connect(
+	listaVentanas.contentTabVentanas.mainGUI.application.Connect(
 		signalSetOrder,
 		func(application *gtk.Application, resetCurrentOrder bool, resetDefaultOrder bool, useGUI bool) {
 			var windowsCurrentOrder []window
@@ -504,10 +524,10 @@ func (listaVentanas *listaVentanas) setupLista() {
 						if !deleted {
 							window := listaVentanas.getWindowFromRowIter(iter)
 							if !cloned {
-								windowsDefaultOrder = append(windowsDefaultOrder, *window)
+								windowsDefaultOrder = append(windowsDefaultOrder, window)
 							}
 							if !excluded {
-								windowsCurrentOrder = append(windowsCurrentOrder, *window)
+								windowsCurrentOrder = append(windowsCurrentOrder, window)
 							}
 						}
 						return false
@@ -540,8 +560,9 @@ func (listaVentanas *listaVentanas) setupLista() {
 				textToSetDefaultOrder = "-1"
 			}
 			// Emit signal to stablish text of current/default order
-			_, _ = listaVentanas.MainGUI.application.Emit(
+			_, _ = listaVentanas.contentTabVentanas.mainGUI.application.Emit(
 				"gui-update-tex-order",
+				glib.TYPE_NONE,
 				textToSetCurrentOrder,
 				textToSetDefaultOrder,
 			)
@@ -549,11 +570,14 @@ func (listaVentanas *listaVentanas) setupLista() {
 	)
 
 	// Handler of signal "app-delete-window-order" used to delete a window that is no longer valid from the *gtk.TreeView
-	listaVentanas.MainGUI.application.Connect(signalDeleteRow, func(application *gtk.Application, path string) {
-		excludeWindow = true                                          // The window should be excluded, is not selectable
-		_, _ = cellRendererToglleColumnExcluded.Emit("toggled", path) // Emit toggle signal
-		functakeOffSelection()
-	})
+	listaVentanas.contentTabVentanas.mainGUI.application.Connect(
+		signalDeleteRow,
+		func(application *gtk.Application, path string) {
+			excludeWindow = true                                                          // The window should be excluded, is not selectable
+			_, _ = cellRendererToglleColumnExcluded.Emit("toggled", glib.TYPE_NONE, path) // Emit toggle signal
+			functakeOffSelection()
+		},
+	)
 }
 
 // Function that deletes all the rows from the *gtk.TreeView
@@ -563,29 +587,35 @@ func (listaVentanas *listaVentanas) clear() {
 	listaVentanas.listStoreActiveWindows.HandlerUnblock(listaVentanas.signalHandlerRowDeleted)
 }
 
-// Function that pop ups a context menu on the *gtk.TreeView at a specific row cell
+// Function that pop-ups a context menu on the *gtk.TreeView at a specific row cell
 func (listaVentanas *listaVentanas) createContextMenuTreeview(iter *gtk.TreeIter, clone bool, event *gdk.Event) {
 	menu, _ := gtk.MenuNew()
 
 	menu.Connect("deactivate", func(menu *gtk.Menu) {
-		_, _ = listaVentanas.treeViewActiveWindows.Emit("disable-context-menu")
+		_, _ = listaVentanas.treeViewActiveWindows.Emit("disable-context-menu", glib.TYPE_NONE)
 	})
 
 	cloneItem, _ := gtk.MenuItemNewWithLabel(funcGetStringResource("gui_treeview_context_menu_clone"))
-	cloneItem.Connect("activate", func(menuItem *gtk.MenuItem) {
-		listaVentanas.cloneRow(iter)
-	})
+	cloneItem.Connect("activate", func(menuItem *gtk.MenuItem) { listaVentanas.cloneRow(iter) })
 
 	deleteItem, _ := gtk.MenuItemNewWithLabel(funcGetStringResource("delete"))
-	deleteItem.Connect("activate", func(item *gtk.MenuItem) {
-		listaVentanas.deleteRow(iter)
-	})
+	deleteItem.Connect("activate", func(item *gtk.MenuItem) { listaVentanas.deleteRow(iter) })
+
+	changeWindowTitleItem, _ := gtk.MenuItemNewWithLabel(
+		funcGetStringResource("gui_treeview_context_menu_change_window_title"),
+	)
+	changeWindowTitleItem.Connect(
+		"activate",
+		func(item *gtk.MenuItem) { listaVentanas.showDialogChangeWindowTitle(iter) },
+	)
 
 	if clone {
 		menu.Add(cloneItem)
 	} else {
 		menu.Add(deleteItem)
 	}
+	menu.Add(changeWindowTitleItem)
+
 	menu.ShowAll()
 	menu.PopupAtPointer(event)
 }
@@ -611,9 +641,9 @@ func (listaVentanas *listaVentanas) cloneRow(iter *gtk.TreeIter) {
 	if newOrder != 0 {
 		window.order = newOrder + 1
 	}
-	listaVentanas.addRow(*window, true, iter)
+	listaVentanas.addRow(window, true, iter)
 	// Emit signal to stablish order
-	_, _ = listaVentanas.MainGUI.application.Emit(signalSetOrder, true, false, true)
+	_, _ = listaVentanas.contentTabVentanas.mainGUI.application.Emit(signalSetOrder, glib.TYPE_NONE, true, false, true)
 }
 
 // Function that deletes a row (*gtk.TreeIter) from the *gtk.TreeView of opened windows
@@ -633,7 +663,7 @@ func (listaVentanas *listaVentanas) deleteRow(iter *gtk.TreeIter) {
 	)
 	listaVentanas.listStoreActiveWindows.Remove(iter)
 	// Emit signal to stablish order
-	_, _ = listaVentanas.MainGUI.application.Emit(signalSetOrder, true, false, true)
+	_, _ = listaVentanas.contentTabVentanas.mainGUI.application.Emit(signalSetOrder, glib.TYPE_NONE, true, false, true)
 }
 
 /*
@@ -690,7 +720,7 @@ func (listaVentanas *listaVentanas) addRow(window window, clonedWindow bool, ite
 }
 
 // Function that returns a *window instance based on a row (*gtk.Iter) data
-func (listaVentanas *listaVentanas) getWindowFromRowIter(iter *gtk.TreeIter) *window {
+func (listaVentanas *listaVentanas) getWindowFromRowIter(iter *gtk.TreeIter) window {
 	value, _ := listaVentanas.listStoreActiveWindows.GetValue(iter, columnOrder)
 	goValue, _ := value.GoValue()
 	order := goValue.(int)
@@ -711,5 +741,221 @@ func (listaVentanas *listaVentanas) getWindowFromRowIter(iter *gtk.TreeIter) *wi
 	goValue, _ = value.GoValue()
 	icon := goValue.(*gdk.Pixbuf)
 
-	return &window{id: id, class: class, title: title, order: order, icon: icon}
+	return window{id: id, class: class, title: title, order: order, icon: icon}
+}
+
+func (listaVentanas *listaVentanas) showDialogChangeWindowTitle(iter *gtk.TreeIter) {
+	// Emit signal to stop global hotkey listener
+	_, _ = listaVentanas.contentTabVentanas.mainGUI.application.Emit(
+		signalControlListener,
+		glib.TYPE_NONE,
+		false,
+		false,
+	)
+
+	builder := getNewBuilder()
+
+	// Config anonymous function to assign all UI strings to appropriate locale
+	initLocale := func() {
+		obj, _ := builder.GetObject("labelTitleDialogChangeWindowTitle")
+		labelTitleDialogChangeWindowTitle := obj.(*gtk.Label)
+		labelTitleDialogChangeWindowTitle.SetMarkup(
+			funcGetStringResource("gui_treeview_context_menu_change_window_title"),
+		)
+
+		obj, _ = builder.GetObject("labelInfoDialogChangeWindowTitle")
+		labelInfoDialogChangeWindowTitle := obj.(*gtk.Label)
+		labelInfoDialogChangeWindowTitle.SetMarkup(funcGetStringResource("gui_change_window_title_label_info"))
+
+		obj, _ = builder.GetObject("labelInfoCurrentWindowTitle")
+		labelInfoCurrentWindowTitle := obj.(*gtk.Label)
+		labelInfoCurrentWindowTitle.SetMarkup(
+			fmt.Sprintf("%s:", funcGetStringResource("gui_change_window_title_current_title")),
+		)
+
+		obj, _ = builder.GetObject("labelInfoNewWindowTitle")
+		labelInfoNewWindowTitle := obj.(*gtk.Label)
+		labelInfoNewWindowTitle.SetMarkup(funcGetStringResource("gui_change_window_title_new_title"))
+
+		obj, _ = builder.GetObject("labelButtonOkChangeWindowTitle")
+		labelButtonOkChangeHotKeys := obj.(*gtk.Label)
+		labelButtonOkChangeHotKeys.SetMarkup(funcGetStringResource("accept"))
+
+		obj, _ = builder.GetObject("labelButtonCancelChangeWindowTitle")
+		labelButtonCancelChangeHotKeys := obj.(*gtk.Label)
+		labelButtonCancelChangeHotKeys.SetMarkup(funcGetStringResource("cancel"))
+	}
+
+	// Config anonymous function to assign the appropiate icons
+	setIcons := func() {
+		obj, _ := builder.GetObject("imageAcceptChangeWindowTitle")
+		image := obj.(*gtk.Image)
+		image.SetFromPixbuf(getPixBufAtSize("accept.png", 18, 18))
+
+		obj, _ = builder.GetObject("imageCancelChangeWindowTitle")
+		image = obj.(*gtk.Image)
+		image.SetFromPixbuf(getPixBufAtSize("cancel.png", 18, 18))
+	}
+
+	initLocale()
+	setIcons()
+
+	obj, _ := builder.GetObject("dialogChangeWindowTitle")
+	dialogChangeWindowTitle := obj.(*gtk.Dialog)
+	dialogChangeWindowTitle.SetTitle(
+		fmt.Sprintf("%s - %s", title, funcGetStringResource("gui_treeview_context_menu_change_window_title")),
+	)
+	dialogChangeWindowTitle.SetIcon(defaultAppIcon)
+	dialogChangeWindowTitle.SetTransientFor(listaVentanas.contentTabVentanas.mainGUI.window)
+
+	window := listaVentanas.getWindowFromRowIter(iter)
+
+	obj, _ = builder.GetObject("labelCurrentWindowTitle")
+	labelCurrentWindowTitle := obj.(*gtk.Label)
+	labelCurrentWindowTitle.SetMarkup(window.title)
+	labelCurrentWindowTitle.SetTooltipText(window.title)
+
+	obj, _ = builder.GetObject("buttonAcceptNewWindowTitle")
+	buttonAcceptNewWindowTitle := obj.(*gtk.Button)
+
+	obj, _ = builder.GetObject("buttonCancelChangeWindowTitle")
+	buttonCancelChangeWindowTitle := obj.(*gtk.Button)
+
+	obj, _ = builder.GetObject("containerErrorDialogChangeWindowTitle")
+	containerErrorDialogChangeWindowTitle := obj.(*gtk.Box)
+
+	obj, _ = builder.GetObject("labelErrorChangeWindowTitle")
+	labelErrorChangeWindowTitle := obj.(*gtk.Label)
+
+	obj, _ = builder.GetObject("entryChangeWindowTitle")
+	entryChangeWindowTitle := obj.(*gtk.Entry)
+
+	// bool value to control wether the window title can be changed or not based on the entry text
+	canChangeWindowTitle := false
+
+	// Handler entry when Enter is pressed on it
+	entryChangeWindowTitle.Connect("activate", func(entry *gtk.Entry) {
+		if !canChangeWindowTitle {
+			return
+		}
+		_, _ = buttonAcceptNewWindowTitle.Emit("clicked", glib.TYPE_NONE)
+	})
+
+	// Handler entry when text changed
+	entryChangeWindowTitle.Connect("changed", func(entry *gtk.Entry) {
+		textOfEntry, _ := entry.GetText()
+		if strings.HasPrefix(textOfEntry, " ") || strings.HasSuffix(textOfEntry, " ") {
+			canChangeWindowTitle = false
+			labelErrorChangeWindowTitle.SetMarkup(
+				fmt.Sprintf(
+					"<span color='tomato'><b>%s</b></span>",
+					funcGetStringResource("invalid_new_window_title"),
+				),
+			)
+			containerErrorDialogChangeWindowTitle.Show()
+		} else if len(strings.TrimSpace(textOfEntry)) == 0 {
+			canChangeWindowTitle = false
+			containerErrorDialogChangeWindowTitle.Hide()
+			labelErrorChangeWindowTitle.SetMarkup("")
+		} else if textOfEntry == window.title {
+			canChangeWindowTitle = false
+			labelErrorChangeWindowTitle.SetMarkup(
+				fmt.Sprintf(
+					"<span color='tomato'><b>%s</b></span>",
+					funcGetStringResource("error_new_title_equals_current_title"),
+				),
+			)
+			containerErrorDialogChangeWindowTitle.Show()
+		} else {
+			containerErrorDialogChangeWindowTitle.Hide()
+			labelErrorChangeWindowTitle.SetMarkup("")
+			canChangeWindowTitle = true
+		}
+		buttonAcceptNewWindowTitle.SetSensitive(canChangeWindowTitle)
+	})
+
+	// Handler button okay
+	buttonAcceptNewWindowTitle.Connect("clicked", func(button *gtk.Button) {
+		go func() {
+			success := false
+			glib.IdleAdd(func() {
+				button.SetSensitive(false)
+				success = listaVentanas.changeWindowTitleInTreeView(window, func() string {
+					textOfEntry, _ := entryChangeWindowTitle.GetText()
+					return textOfEntry
+				}())
+				if success {
+					dialogChangeWindowTitle.Response(gtk.RESPONSE_CLOSE)
+				}
+			})
+			if !success {
+				time.Sleep(time.Second / 3)
+				glib.IdleAdd(func() {
+					labelErrorChangeWindowTitle.SetMarkup(
+						fmt.Sprintf(
+							"<span color='tomato'><b>%s</b></span>",
+							funcGetStringResource("error_changing_window_title"),
+						),
+					)
+					containerErrorDialogChangeWindowTitle.Show()
+					button.SetSensitive(true)
+				})
+			}
+		}()
+	})
+
+	// Handler button cancel
+	buttonCancelChangeWindowTitle.Connect(
+		"clicked",
+		func(button *gtk.Button) { dialogChangeWindowTitle.Response(gtk.RESPONSE_CLOSE) },
+	)
+
+	dialogChangeWindowTitle.Connect("response", func(dialog *gtk.Dialog, response int) {
+		_, _ = listaVentanas.contentTabVentanas.mainGUI.application.Emit(
+			signalControlListener,
+			glib.TYPE_NONE,
+			true,
+			false,
+		)
+		dialog.Destroy()
+		listaVentanas.contentTabVentanas.mainGUI.window.Present()
+	})
+	dialogChangeWindowTitle.Run()
+}
+
+func (listaVentanas *listaVentanas) changeWindowTitleInTreeView(window_ window, newTitle string) bool {
+	if !changeWindowTitle(window_.id, newTitle) {
+		return false
+	}
+	titleChangedInTreeView := false
+	listaVentanas.listStoreActiveWindows.ForEach(
+		func(model *gtk.TreeModel, path *gtk.TreePath, iter *gtk.TreeIter) bool {
+			value, _ := model.GetValue(iter, columnId)
+			goValue, _ := value.GoValue()
+			id := goValue.(string)
+			if id == window_.id {
+				if listaVentanas.listStoreActiveWindows.SetValue(iter, columnTitle, newTitle) == nil {
+					titleChangedInTreeView = true
+				} else {
+					return true // stop looping
+				}
+			}
+			return false // loop through all rows in the treeview
+		},
+	)
+	if !titleChangedInTreeView {
+		return false
+	}
+
+	funcChangeWindowTitleInSliceOfWindows := func(windowsSlice []window) {
+		for i, winn := range windowsSlice {
+			if winn.id == window_.id {
+				windowsSlice[i].title = newTitle
+			}
+		}
+	}
+	funcChangeWindowTitleInSliceOfWindows(listaVentanas.windowList)
+	funcChangeWindowTitleInSliceOfWindows(currentOrder)
+	funcChangeWindowTitleInSliceOfWindows(defaultOrder)
+	return true
 }

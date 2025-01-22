@@ -1,0 +1,33 @@
+linters:
+    enable:
+      # enabled by default
+      - errcheck
+      - gosimple
+      - govet
+      - ineffassign
+      - staticcheck
+      - unused
+      # disabled by default
+      - asasalint
+      - asciicheck
+      - bodyclose
+      - copyloopvar
+      - gofumpt
+      - unparam
+      - wastedassign
+linters-settings:
+    staticcheck:
+      checks:
+        - all
+        - "-ST1000"
+        - "-ST1003"
+        - "-ST1016"
+    gofumpt:
+      # Module path which contains the source code being formatted.
+      # Default: ""
+      module-path: linux-windows-switcher
+      # Choose whether to use the extra rules.
+      # Default: false
+      extra-rules: false
+run:
+    timeout: 5m

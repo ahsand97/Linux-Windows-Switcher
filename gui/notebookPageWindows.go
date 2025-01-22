@@ -13,7 +13,7 @@ import (
 )
 
 type contentTabVentanas struct {
-	MainGUI
+	mainGUI                    MainGUI
 	listWindowClass            []window
 	listPreferredClasses       []string
 	listExcludedClasses        []string
@@ -35,7 +35,7 @@ const (
 
 // newContentTabVentanas Constructor
 func (mainGUI *MainGUI) newContentTabVentanas() *contentTabVentanas {
-	contentTabVentanas := &contentTabVentanas{MainGUI: *mainGUI}
+	contentTabVentanas := &contentTabVentanas{mainGUI: *mainGUI}
 
 	contentTabVentanas.windowList = contentTabVentanas.newListaVentanas()
 	contentTabVentanas.initLocale()
@@ -45,70 +45,70 @@ func (mainGUI *MainGUI) newContentTabVentanas() *contentTabVentanas {
 
 // Config function to assign all UI strings to appropriate locale
 func (contentTabVentanas *contentTabVentanas) initLocale() {
-	obj, _ := contentTabVentanas.MainGUI.builder.GetObject("expanderLabel")
+	obj, _ := contentTabVentanas.mainGUI.builder.GetObject("expanderLabel")
 	expanderLabel := obj.(*gtk.Label)
 	expanderLabel.SetMarkup(funcGetStringResource("gui_expander_label"))
 	expanderLabel.SetTooltipText(funcGetStringResource("gui_expander_label_tooltip"))
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelTitleListBoxActiveWindowClasses")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelTitleListBoxActiveWindowClasses")
 	labelTitleListBoxActiveWindowClasses := obj.(*gtk.Label)
 	labelTitleListBoxActiveWindowClasses.SetMarkup(funcGetStringResource("gui_label_title_listbox_active_classes"))
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelTitleListBoxPreferredClasses")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelTitleListBoxPreferredClasses")
 	labelTitleListBoxPreferredClasses := obj.(*gtk.Label)
 	labelTitleListBoxPreferredClasses.SetMarkup(funcGetStringResource("gui_label_title_listbox_preferred_classes"))
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelTitleListBoxExcludedClasses")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelTitleListBoxExcludedClasses")
 	labelTitleListBoxExcludedClasses := obj.(*gtk.Label)
 	labelTitleListBoxExcludedClasses.SetMarkup(funcGetStringResource("gui_label_title_listbox_excluded_classes"))
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelButtonRefreshWindowClasses")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelButtonRefreshWindowClasses")
 	labelButtonRefreshWindowClasses := obj.(*gtk.Label)
 	labelButtonRefreshWindowClasses.SetMarkup(funcGetStringResource("refresh"))
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelTitleWindowsOrder")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelTitleWindowsOrder")
 	labelTitleWindowsOrder := obj.(*gtk.Label)
 	labelTitleWindowsOrder.SetMarkup(funcGetStringResource("gui_title_windows_order"))
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelExplanationWindowsOrder")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelExplanationWindowsOrder")
 	labelExplanationWindowsOrder := obj.(*gtk.Label)
 	labelExplanationWindowsOrder.SetMarkup(funcGetStringResource("gui_explanation_windows_order"))
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelCurrentOrderTitle")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelCurrentOrderTitle")
 	labelCurrentOrderTitle := obj.(*gtk.Label)
 	labelCurrentOrderTitle.SetMarkup(fmt.Sprintf("%s:", funcGetStringResource("gui_label_current_order")))
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelDefaultOrderTitle")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelDefaultOrderTitle")
 	labelDefaultOrderTitle := obj.(*gtk.Label)
 	labelDefaultOrderTitle.SetMarkup(fmt.Sprintf("%s:", funcGetStringResource("gui_label_default_order")))
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelRefreshOpenWindows")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelRefreshOpenWindows")
 	labelRefreshOpenWindows := obj.(*gtk.Label)
 	labelRefreshOpenWindows.SetMarkup(funcGetStringResource("gui_label_refresh_open_windows"))
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelRestoreDefaultOrder")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelRestoreDefaultOrder")
 	labelRestoreDefaultOrder := obj.(*gtk.Label)
 	labelRestoreDefaultOrder.SetMarkup(funcGetStringResource("gui_label_restore_default_order"))
 }
 
 // Config function
 func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
-	obj, _ := contentTabVentanas.MainGUI.builder.GetObject("listBoxActiveWindowClasses")
+	obj, _ := contentTabVentanas.mainGUI.builder.GetObject("listBoxActiveWindowClasses")
 	contentTabVentanas.listBoxActiveWindowClasses = obj.(*gtk.ListBox)
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("listBoxPreferredClasses")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("listBoxPreferredClasses")
 	contentTabVentanas.listBoxPreferredClasses = obj.(*gtk.ListBox)
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("listBoxExcludedClasses")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("listBoxExcludedClasses")
 	contentTabVentanas.listBoxExcludedClasses = obj.(*gtk.ListBox)
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelCurrentOrder")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelCurrentOrder")
 	labelCurrentOrder := obj.(*gtk.Label)
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("labelDefaultOrder")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("labelDefaultOrder")
 	labelDefaultOrder := obj.(*gtk.Label)
 
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("buttonRefreshWindowClasses")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("buttonRefreshWindowClasses")
 	buttonRefreshWindowClasses := obj.(*gtk.Button)
 	buttonRefreshWindowClasses.Connect("clicked", func(button *gtk.Button) {
 		go func() {
@@ -128,11 +128,11 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 	})
 
 	// Container of *gtk.TreeView of opened windows
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("containerTreeViewWindows")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("containerTreeViewWindows")
 	containerTreeViewWindows := obj.(*gtk.Box)
 
 	// Container of all the section related with the order both current and default
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("containerSectionOrder")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("containerSectionOrder")
 	containerSectionOrder := obj.(*gtk.Box)
 
 	// Auxiliar slices used when expander expands to check if there was any change in the configuration
@@ -140,12 +140,12 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 	var listExcludedClassesPrevious []string
 
 	// Expander
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("expander")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("expander")
 	contentTabVentanas.expander = obj.(*gtk.Expander)
 	contentTabVentanas.expander.Connect("activate", func(expander *gtk.Expander) {
 		expanded := expander.GetExpanded()
 
-		contentTabVentanas.MainGUI.buttonControlListener.SetSensitive(expanded)
+		contentTabVentanas.mainGUI.buttonControlListener.SetSensitive(expanded)
 		containerTreeViewWindows.SetSensitive(expanded)
 		containerSectionOrder.SetSensitive(expanded)
 
@@ -171,7 +171,7 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 			}
 
 			// Emit signal to start global hotkey listener
-			_, _ = contentTabVentanas.MainGUI.application.Emit(signalControlListener, true, false)
+			_, _ = contentTabVentanas.mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, true, false)
 		} else {
 			listPreferredClassesPrevious = nil
 			listPreferredClassesPrevious = append(listPreferredClassesPrevious, contentTabVentanas.listPreferredClasses...)
@@ -180,7 +180,7 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 			listExcludedClassesPrevious = append(listExcludedClassesPrevious, contentTabVentanas.listExcludedClasses...)
 
 			// Emit signal to stop global hotkey listener
-			_, _ = contentTabVentanas.MainGUI.application.Emit(signalControlListener, false, false)
+			_, _ = contentTabVentanas.mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, false, false)
 			contentTabVentanas.listWindowClass = nil
 
 			// Remove all items from the *gtk.ListBox of active window-classes
@@ -192,20 +192,20 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 		}
 	})
 	contentTabVentanas.expander.ConnectAfter("activate", func(expander *gtk.Expander) {
-		width, height := contentTabVentanas.MainGUI.window.GetSize()
-		if !contentTabVentanas.MainGUI.window.IsMaximized() && (width > 0 && height > 0) {
-			contentTabVentanas.MainGUI.window.Resize(width, 1)
+		width, height := contentTabVentanas.mainGUI.window.GetSize()
+		if !contentTabVentanas.mainGUI.window.IsMaximized() && (width > 0 && height > 0) {
+			contentTabVentanas.mainGUI.window.Resize(width, 1)
 		}
 	})
 
 	// Button refesh open windows
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("buttonRefreshOpenWindows")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("buttonRefreshOpenWindows")
 	buttonRefreshOpenWindows := obj.(*gtk.Button)
 	buttonRefreshOpenWindows.Connect("clicked", func(button *gtk.Button) {
 		go func() {
 			glib.IdleAdd(func() {
 				// Emit signal to stop global hotkey listener
-				_, _ = contentTabVentanas.MainGUI.application.Emit(signalControlListener, false, false)
+				_, _ = contentTabVentanas.mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, false, false)
 				// Empty *gtk.TreeView of active windows
 				contentTabVentanas.windowList.clear()
 				// Clear content of current/default order
@@ -218,32 +218,28 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 				// Get all active window-classes
 				contentTabVentanas.getActiveWindows(false, true)
 				// Emit signal to start global hotkey listener
-				_, _ = contentTabVentanas.MainGUI.application.Emit(signalControlListener, true, false)
+				_, _ = contentTabVentanas.mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, true, false)
 				button.SetSensitive(true)
 			})
 		}()
 	})
 
 	// Button restore default order
-	obj, _ = contentTabVentanas.MainGUI.builder.GetObject("buttonRestoreOrder")
+	obj, _ = contentTabVentanas.mainGUI.builder.GetObject("buttonRestoreOrder")
 	buttonRestoreOrder := obj.(*gtk.Button)
 	buttonRestoreOrder.Connect("clicked", func(button *gtk.Button) {
 		go func() {
 			// If both current and default order are the same the button gets animated and that's it
 			if funcTestEq(currentOrder, defaultOrder) {
-				glib.IdleAdd(func() {
-					button.SetSensitive(false)
-				})
+				glib.IdleAdd(func() { button.SetSensitive(false) })
 				time.Sleep(time.Second / 3)
-				glib.IdleAdd(func() {
-					button.SetSensitive(true)
-				})
+				glib.IdleAdd(func() { button.SetSensitive(true) })
 				return
 			}
 			glib.IdleAdd(func() {
 				button.SetSensitive(false)
 				// Emit signal to stop global hotkey listener
-				_, _ = contentTabVentanas.MainGUI.application.Emit(signalControlListener, false, false)
+				_, _ = contentTabVentanas.mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, false, false)
 				// Clear *gtk.TreeView
 				contentTabVentanas.windowList.clear()
 				// Clear content of current order
@@ -257,9 +253,9 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 					contentTabVentanas.windowList.addRow(window, false, nil)
 				}
 				// Emit signal to stablish order
-				_, _ = contentTabVentanas.MainGUI.application.Emit(signalSetOrder, true, false, false)
+				_, _ = contentTabVentanas.mainGUI.application.Emit(signalSetOrder, glib.TYPE_NONE, true, false, false)
 				// Emit signal to start global hotkey listener
-				_, _ = contentTabVentanas.MainGUI.application.Emit(signalControlListener, true, false)
+				_, _ = contentTabVentanas.mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, true, false)
 				button.SetSensitive(true)
 			})
 		}()
@@ -283,7 +279,12 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 			- box: *gtk.ListBox where to add the class
 	*/
 	getClasses := func(option string, list *[]string, box *gtk.ListBox) {
-		result, _ := contentTabVentanas.MainGUI.application.Emit(signalGetConfig, sectionClasses, option)
+		result, _ := contentTabVentanas.mainGUI.application.Emit(
+			signalGetConfig,
+			glib.TYPE_STRING,
+			sectionClasses,
+			option,
+		)
 		classString := result.(string)
 		if len(classString) > 0 {
 			for _, class := range strings.Split(classString, ",") {
@@ -317,7 +318,7 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 	// Signal to update the text on the GUI related with current/default order of windows
 	_, _ = glibown.SignalNewV("gui-update-tex-order", glib.TYPE_NONE, 2, glib.TYPE_STRING, glib.TYPE_STRING)
 	// Handler
-	contentTabVentanas.MainGUI.application.Connect(
+	contentTabVentanas.mainGUI.application.Connect(
 		"gui-update-tex-order",
 		func(application *gtk.Application, textLabelCurrentOrder string, textLabelDefaultOrder string) {
 			if len(textLabelCurrentOrder) > 0 {
@@ -349,7 +350,7 @@ func (contentTabVentanas *contentTabVentanas) getClassesCurrentWindows() {
 	windowClasses := map[window]bool{}
 
 	for _, windowActive := range listWindows(true) {
-		if strings.Contains(windowActive.class, contentTabVentanas.MainGUI.application.GetApplicationID()) ||
+		if strings.Contains(windowActive.class, contentTabVentanas.mainGUI.application.GetApplicationID()) ||
 			windowActive.desktop == -1 || windowClasses[windowActive] {
 			continue
 		}
@@ -387,9 +388,9 @@ func (contentTabVentanas *contentTabVentanas) getClassesCurrentWindows() {
 
 // Function that get all currently active windows taking into consideration config of preferred/excluded classes
 func (contentTabVentanas *contentTabVentanas) getActiveWindows(resetCurrentOrder bool, resetDefaultOrder bool) {
-	validWindows := []window{}
+	var validWindows []window
 	for _, windowActive := range listWindows(true) {
-		if strings.Contains(windowActive.class, contentTabVentanas.MainGUI.application.GetApplicationID()) ||
+		if strings.Contains(windowActive.class, contentTabVentanas.mainGUI.application.GetApplicationID()) ||
 			windowActive.desktop == -1 {
 			continue
 		}
@@ -424,12 +425,12 @@ func (contentTabVentanas *contentTabVentanas) getActiveWindows(resetCurrentOrder
 	}
 
 	if !resetCurrentOrder {
-		// If the length of current order and default order are different or if length of current order is 0 then it gets reset
+		// If the length of current order and default order are different or if length of current order is 0 then it gets resetted
 		if len(currentOrder) != len(contentTabVentanas.windowList.windowList) || len(currentOrder) == 0 {
 			resetCurrentOrder = true
 		}
 		// If both current order and default order have same length then we check if both have same windows, if not
-		// current order is reset
+		// current order is resetted
 		for _, windowCurrentOrder := range currentOrder {
 			windowExist := false
 			for _, newWindow := range contentTabVentanas.windowList.windowList {
@@ -444,9 +445,10 @@ func (contentTabVentanas *contentTabVentanas) getActiveWindows(resetCurrentOrder
 			}
 		}
 	}
-	// Emit signal to stablish order
-	_, _ = contentTabVentanas.MainGUI.application.Emit(
+	// Emit signal to establish order
+	_, _ = contentTabVentanas.mainGUI.application.Emit(
 		signalSetOrder,
+		glib.TYPE_NONE,
 		resetCurrentOrder,
 		resetDefaultOrder,
 		false,
@@ -539,15 +541,14 @@ func (contentTabVentanas *contentTabVentanas) createListBoxRow(
 		// already contains windowClass so make it non-sensitive
 		checkButton := func() {
 			button.SetSensitive(
-				!(contains(contentTabVentanas.listPreferredClasses, windowClass.class) || contains(contentTabVentanas.listExcludedClasses, windowClass.class)),
+				!contains(contentTabVentanas.listPreferredClasses, windowClass.class) &&
+					!contains(contentTabVentanas.listExcludedClasses, windowClass.class),
 			)
 		}
 		checkButton()
 
 		// Handler of signal
-		listboxRow.Connect("listBoxActiveWindowClasses-enable-button", func(row *gtk.ListBoxRow) {
-			checkButton()
-		})
+		listboxRow.Connect("listBoxActiveWindowClasses-enable-button", func(row *gtk.ListBoxRow) { checkButton() })
 	} else { // Show button "Delete"
 		obj, _ = builder.GetObject("buttonDeleteFromListBox")
 		button := obj.(*gtk.Button)
@@ -596,16 +597,15 @@ func (contentTabVentanas *contentTabVentanas) addITemToListBox(
 	*associatedList = append(*associatedList, windowClass.class)
 
 	// Update config file when adding a class
-	result, _ := contentTabVentanas.MainGUI.application.Emit(
+	result, _ := contentTabVentanas.mainGUI.application.Emit(
 		signalUpdateConfig,
+		glib.TYPE_BOOLEAN,
 		sectionClasses,
 		option,
 		strings.Join(*associatedList, ","),
 	)
 	go func() {
-		glib.IdleAdd(func() {
-			associatedButton.SetSensitive(false)
-		})
+		glib.IdleAdd(func() { associatedButton.SetSensitive(false) })
 		time.Sleep(time.Second / 3)
 		glib.IdleAdd(func() {
 			targetListBox.Add(contentTabVentanas.createListBoxRow(windowClass, false, targetListBox))
@@ -614,7 +614,7 @@ func (contentTabVentanas *contentTabVentanas) addITemToListBox(
 				if option == optionExcludedClasses {
 					msg2 = funcGetStringResource("gui_class_error_add_to_excluded_listbox")
 				}
-				contentTabVentanas.MainGUI.showMessageDialog(
+				contentTabVentanas.mainGUI.showMessageDialog(
 					gtk.MESSAGE_ERROR,
 					funcGetStringResource("config_error_update_file"),
 					msg2,
@@ -644,16 +644,15 @@ func (contentTabVentanas *contentTabVentanas) deleteItemFromListBox(
 ) {
 	*associatedList = removeItem(*associatedList, class)
 	// Update config file when removing class
-	result, _ := contentTabVentanas.MainGUI.application.Emit(
+	result, _ := contentTabVentanas.mainGUI.application.Emit(
 		signalUpdateConfig,
+		glib.TYPE_BOOLEAN,
 		sectionClasses,
 		option,
 		strings.Join(*associatedList, ","),
 	)
 	go func() {
-		glib.IdleAdd(func() {
-			associatedButton.SetSensitive(false)
-		})
+		glib.IdleAdd(func() { associatedButton.SetSensitive(false) })
 		time.Sleep(time.Second / 3)
 		glib.IdleAdd(func() {
 			var associatedItem *gtk.Widget
@@ -681,14 +680,14 @@ func (contentTabVentanas *contentTabVentanas) deleteItemFromListBox(
 			associatedListBox.Remove(associatedListBoxRow)
 			if associatedItem != nil {
 				// Emit signal to enable button if item is in *gtk.ListBox of active window-classes
-				_, _ = associatedItem.Emit("listBoxActiveWindowClasses-enable-button")
+				_, _ = associatedItem.Emit("listBoxActiveWindowClasses-enable-button", glib.TYPE_NONE)
 			}
 			if !result.(bool) {
 				msg2 := funcGetStringResource("gui_class_error_update_preferred_listbox")
 				if option == optionExcludedClasses {
 					msg2 = funcGetStringResource("gui_class_error_update_excluded_listbox")
 				}
-				contentTabVentanas.MainGUI.showMessageDialog(
+				contentTabVentanas.mainGUI.showMessageDialog(
 					gtk.MESSAGE_ERROR,
 					funcGetStringResource("config_error_update_file"),
 					msg2,

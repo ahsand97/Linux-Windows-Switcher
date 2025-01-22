@@ -55,9 +55,7 @@ func (app *mainApplication) startup() {
 	// Signal to open main window
 	_, _ = glib.SignalNew("app-open-window")
 	// Handler
-	app.application.Connect("app-open-window", func(application *gtk.Application) {
-		app.gui.PresentWindow()
-	})
+	app.application.Connect("app-open-window", func(application *gtk.Application) { app.gui.PresentWindow() })
 
 	// Signal to restart application
 	_, _ = glib.SignalNew("app-restart")
@@ -65,7 +63,7 @@ func (app *mainApplication) startup() {
 	app.application.Connect("app-restart", func(application *gtk.Application) {
 		application.Quit()
 		command := fmt.Sprintf("'%s' %s", getPathExecutbale(false), strings.Join(os.Args[1:], " "))
-		fmt.Println(command)
+		fmt.Println("Restarting app, using command: ", command)
 		_ = exec.Command("bash", "-c", command).Start()
 	})
 
@@ -137,10 +135,10 @@ func (app *mainApplication) startup() {
 		glib.TYPE_BOOLEAN,
 	)
 
-	// Signal to stabligh the global hotkey
+	// Signal to establish the global hotkey
 	_, _ = glib.SignalNew("app-listener-set-hotkeys")
 
-	// Signal to stablish the new windows order
+	// Signal to establish the new windows order
 	_, _ = glibown.SignalNewV(
 		"app-set-order",
 		glib.TYPE_NONE,
@@ -155,7 +153,7 @@ func (app *mainApplication) startup() {
 }
 
 // Callback of signal "activate" of the application
-// This function initializes the UI and the app if it hasn't started yet otherwise it shows the main window
+// This function initializes the UI and the app if it hasn't started yet, otherwise it shows the main window
 func (app *mainApplication) activate() {
 	if app.gui == nil {
 		app.keyboardListener = keyboard.NewListenerKeyBoard(app.application)
@@ -185,7 +183,7 @@ Parameter:
   - appimage: Whether to return the path of the APPDIR if it's running from the .AppImage
 */
 func getPathExecutbale(appimage bool) string {
-	pathExecutable := ""
+	var pathExecutable string
 	if value, exists := os.LookupEnv("APPIMAGE"); exists {
 		pathExecutable = value
 		if appimage {
@@ -248,19 +246,20 @@ func initLocalization() {
 	bundle.RegisterUnmarshalFunc("json", json.Unmarshal)
 
 	// String resources
-	stringResources := map[language.Tag]string{}
-	stringResources[language.English] = "strings-en.json"
-	stringResources[language.Spanish] = "strings-es.json"
-	stringResources[language.French] = "strings-fr.json"
+	stringResources := map[language.Tag]string{
+		language.English: "strings-en.json",
+		language.Spanish: "strings-es.json",
+		language.French:  "strings-fr.json",
+	}
 
 	// Load string resources
-	for language, stringResource := range stringResources {
+	for language_, stringResource := range stringResources {
 		messageFile, _ := bundle.LoadMessageFileFS(resources, filepath.Join(resourcesFolderName, stringResource))
-		_ = bundle.AddMessages(language, messageFile.Messages...)
+		_ = bundle.AddMessages(language_, messageFile.Messages...)
 	}
 
 	// Languages
-	languages := []string{}
+	var languages []string
 
 	// Get current locale
 	tag, _ := locale.Detect()
@@ -275,8 +274,7 @@ func initLocalization() {
 		if lang.String() == currentLanguage.String() {
 			continue
 		}
-		langStr := lang.String()
-		languages = append(languages, langStr)
+		languages = append(languages, lang.String())
 	}
 	defaultLanguageAdded := false
 	for _, lang := range languages {
@@ -300,7 +298,7 @@ func initLocalization() {
 		}
 	}
 
-	// New localizer to get strings based on locale language
+	// New localizer to get strings based on locale language_
 	localizer = i18n.NewLocalizer(bundle, supportedLanguages...)
 }
 
@@ -330,11 +328,7 @@ func main() {
 	iconFileDisabled = pathlib.NewPath(getPathExecutbale(true)).Parent().Join(resourcesFolderName, iconDisabledFileName)
 
 	mainApplication := newApplication(application)
-	mainApplication.application.Connect("startup", func(application *gtk.Application) {
-		mainApplication.startup()
-	})
-	mainApplication.application.Connect("activate", func(application *gtk.Application) {
-		mainApplication.activate()
-	})
+	mainApplication.application.Connect("startup", func(application *gtk.Application) { mainApplication.startup() })
+	mainApplication.application.Connect("activate", func(application *gtk.Application) { mainApplication.activate() })
 	mainApplication.application.Run(args)
 }

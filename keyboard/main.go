@@ -58,10 +58,14 @@ func (listenerKeyboard *ListenerKeyboard) setupContentKeyboard() {
 			glib.IdleAdd(func() {
 				if updateCtrl { // Wether the state should be reflected on the UI (Window and indicator)
 					listenerKeyboard.listenerState = !listenerKeyboard.listenerState
-					_, _ = listenerKeyboard.application.Emit(signalSyncStateListener, listenerKeyboard.listenerState)
+					_, _ = listenerKeyboard.application.Emit(
+						signalSyncStateListener,
+						glib.TYPE_NONE,
+						listenerKeyboard.listenerState,
+					)
 				}
 				if active { // If listener is active a signal is emitted to set the global hotkeys
-					_, _ = application.Emit(signalSetHotKeys)
+					_, _ = application.Emit(signalSetHotKeys, glib.TYPE_NONE)
 				} else { // If listener is inactive the map containing the pressed keys gets cleaned
 					if len(keys) > 0 {
 						keys = map[uint16]bool{}
@@ -120,7 +124,7 @@ func (listenerKeyboard *ListenerKeyboard) startKeyboardListener() {
 	}()
 }
 
-// Stop Keyboard Listener
+// ExitListener Stops Keyboard Listener
 func ExitListener() {
 	defer func() {
 		err := recover()
@@ -144,7 +148,7 @@ func NewHotKey(name string, callback func()) *HotKey {
 	return hotkey
 }
 
-// SetHotKeys
+// SetHotKeys sets the hotkeys for the keyboard listener
 func SetHotKeys(hotKeysInput []*HotKey) {
 	hotKeys = hotKeysInput
 }

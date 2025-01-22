@@ -16,10 +16,9 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v3
       - name: Build AppImage
-        uses: AppImageCrafters/build-appimage@v1 # It uses ubuntu bionic (18.04)
-        # uses: AppImageCrafters/build-appimage@master # It uses ubuntu focal (20.04)
+        uses: AppImageCrafters/build-appimage@master # It uses ubuntu focal (20.04)
         with:
-          recipe: ./generate_appImage/AppImageBuilder_Github_Action.yml
+          recipe: ./generate_appImage/AppImageBuilder.yml
       - name: Upload assets to release
         uses: ahsand97/upload-assets-to-release-with-go@v0.1.0
         with:

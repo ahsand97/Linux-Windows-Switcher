@@ -2,6 +2,7 @@ package appindicator
 
 import (
 	"github.com/dawidd6/go-appindicator"
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -63,30 +64,28 @@ func (indicator *Indicator) setupIndicator() {
 	defer menu.ShowAll()
 
 	openMainWindow, _ := gtk.MenuItemNewWithLabel(funcGetStringResource("indicator_menu_open_main_window"))
-	openMainWindow.Connect("activate", func(menuItem *gtk.MenuItem) {
-		_, _ = indicator.application.Emit(signalOpenMainWindow)
-	})
+	openMainWindow.Connect(
+		"activate",
+		func(menuItem *gtk.MenuItem) { _, _ = indicator.application.Emit(signalOpenMainWindow, glib.TYPE_NONE) },
+	)
 
 	optionControlListener, _ = gtk.MenuItemNewWithLabel(funcGetStringResource("enable_keyboard_listener"))
 	optionControlListener.Connect("activate", func(menuItem *gtk.MenuItem) {
-		newState := false
-		if menuItem.GetLabel() == funcGetStringResource("enable_keyboard_listener") {
-			newState = true
-		}
+		newState := menuItem.GetLabel() == funcGetStringResource("enable_keyboard_listener")
 		// Emit signal to start/stop the keyboard listener
-		_, _ = indicator.application.Emit(signalControlListener, newState, true)
+		_, _ = indicator.application.Emit(signalControlListener, glib.TYPE_NONE, newState, true)
 	})
 
 	restartApp, _ := gtk.MenuItemNewWithLabel(funcGetStringResource("restart"))
 	restartApp.Connect("activate", func(menuItem *gtk.MenuItem) {
 		// Emit signal to restart  application
-		_, _ = indicator.application.Emit(signalReboot)
+		_, _ = indicator.application.Emit(signalReboot, glib.TYPE_NONE)
 	})
 
 	exitApp, _ := gtk.MenuItemNewWithLabel(funcGetStringResource("exit"))
 	exitApp.Connect("activate", func(menuItem *gtk.MenuItem) {
 		// Emit signal to exit application
-		_, _ = indicator.application.Emit(signalExit)
+		_, _ = indicator.application.Emit(signalExit, glib.TYPE_NONE)
 	})
 
 	// Add subitems to appindicator menu
@@ -99,7 +98,7 @@ func (indicator *Indicator) setupIndicator() {
 	indicator.indicator.SetMenu(menu)
 }
 
-// Update appindicator icon
+// UpdateIconState Update the icon state
 func (indicator *Indicator) UpdateIconState(newState bool) {
 	icon := icons[iconActive]
 	if !newState {

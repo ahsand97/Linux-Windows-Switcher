@@ -32,6 +32,7 @@
     "gui_treeview_prefix_cloned_window": "clonada",
     "gui_treeview_prefix_closed_window": "cerrada",
     "gui_treeview_context_menu_clone": "Clonar",
+    "gui_treeview_context_menu_change_window_title": "Cambiar título de la ventana",
     "gui_treeview_column_class": "Clase",
     "gui_treeview_column_title": "Título",
     "gui_treeview_column_exclude": "Excluír",
@@ -53,5 +54,11 @@
     "gui_explanation_global_hotkeys": "Lista de atajos de teclado. Para cambiar la combinación de teclas de un atajo o deshabilitarlo use sus botones respectivos.",
     "gui_config_hotkey_title": "Combinación de Teclas",
     "gui_config_hotkey_label": "Configurando atajo de teclado",
-    "gui_config_hotkey_label_info": "Presione la cantidad de teclas preferida (máx. %d teclas) para asignarle al atajo."
+    "gui_config_hotkey_label_info": "Presione la cantidad de teclas preferida (máx. %d teclas) para asignarle al atajo.",
+    "gui_change_window_title_label_info": "Establece un nuevo título para la ventana.\nEsto también afectará a cualquier ventana clonada que coincida con el id de la ventana.",
+    "gui_change_window_title_current_title": "Título actual",
+    "gui_change_window_title_new_title": "Título Nuevo",
+    "invalid_new_window_title": "El título nuevo no puede empezar o terminar con espacios.",
+    "error_changing_window_title": "Ocurrió un error cambiando el título, intente nuevamente.",
+    "error_new_title_equals_current_title": "El título nuevo es igual al actual."
 }

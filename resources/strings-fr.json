@@ -32,6 +32,7 @@
     "gui_treeview_prefix_cloned_window": "cloné",
     "gui_treeview_prefix_closed_window": "fermée",
     "gui_treeview_context_menu_clone": "Cloner",
+    "gui_treeview_context_menu_change_window_title": "Changer le titre de la fenêtre",
     "gui_treeview_column_class": "Classe",
     "gui_treeview_column_title": "Titre",
     "gui_treeview_column_exclude": "Exclure",
@@ -53,5 +54,11 @@
     "gui_explanation_global_hotkeys": "Raccourcis clavier. Pour changer la combinaison d'un raccourci ou le désactiver, utilisez les boutons respectifs.",
     "gui_config_hotkey_title": "Combinaison du Clé",
     "gui_config_hotkey_label": "Configuration du raccourci clavier",
-    "gui_config_hotkey_label_info": "Appuyez sur la quantité préférée de touches (max. %d clés) pour attribuer le raccourci."
+    "gui_config_hotkey_label_info": "Appuyez sur la quantité préférée de touches (max. %d clés) pour attribuer le raccourci.",
+    "gui_change_window_title_label_info": "Définit un nouveau titre pour la fenêtre.\nCela affectera également toute fenêtre clonée correspondant à l'id de la fenêtre.",
+    "gui_change_window_title_current_title": "Titre Actuel",
+    "gui_change_window_title_new_title": "Nouveau Titre",
+    "invalid_new_window_title": "Le nouveau titre ne peut pas commencer ou se terminer par des espaces.",
+    "error_changing_window_title": "Une erreur s'est produite lors de la modification du titre de la fenêtre, réessayez.",
+    "error_new_title_equals_current_title": "Le nouveau titre est égal à l'actuel."
 }

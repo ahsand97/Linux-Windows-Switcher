@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"linux-windows-switcher/keyboard"
-	"linux-windows-switcher/libs/glibown"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
@@ -15,7 +14,7 @@ import (
 )
 
 type contentTabAtajos struct {
-	MainGUI
+	mainGUI        MainGUI
 	listBoxHotKeys *gtk.ListBox
 	listHotKeys    []*keyboard.HotKey
 }
@@ -49,7 +48,7 @@ var (
 
 // newContentTabAtajos Constructor
 func (mainGUI *MainGUI) newContentTabAtajos() *contentTabAtajos {
-	contentTabAtajos := &contentTabAtajos{MainGUI: *mainGUI}
+	contentTabAtajos := &contentTabAtajos{mainGUI: *mainGUI}
 
 	contentTabAtajos.initLocale()
 	contentTabAtajos.setupContentTabAtajos()
@@ -58,11 +57,11 @@ func (mainGUI *MainGUI) newContentTabAtajos() *contentTabAtajos {
 
 // Config function to assign all UI strings to appropriate locale
 func (contentTabAtajos *contentTabAtajos) initLocale() {
-	obj, _ := contentTabAtajos.MainGUI.builder.GetObject("labelTitleGlobalHotKeys")
+	obj, _ := contentTabAtajos.mainGUI.builder.GetObject("labelTitleGlobalHotKeys")
 	labelTitleGlobalHotKeys := obj.(*gtk.Label)
 	labelTitleGlobalHotKeys.SetMarkup(funcGetStringResource("gui_title_global_hotkeys"))
 
-	obj, _ = contentTabAtajos.MainGUI.builder.GetObject("labelExplanationGlobalHotKeys")
+	obj, _ = contentTabAtajos.mainGUI.builder.GetObject("labelExplanationGlobalHotKeys")
 	labelExplanationGlobalHotKeys := obj.(*gtk.Label)
 	labelExplanationGlobalHotKeys.SetMarkup(funcGetStringResource("gui_explanation_global_hotkeys"))
 }
@@ -78,7 +77,7 @@ func (contentTabAtajos *contentTabAtajos) setupContentTabAtajos() {
 	// Create signal to update the ListBoxRow containing the global hotkeys whenever a hotkey is set/modified
 	_, _ = glib.SignalNew("listbox-update-hotkey")
 
-	obj, _ := contentTabAtajos.MainGUI.builder.GetObject("containerTitleHotKeys")
+	obj, _ := contentTabAtajos.mainGUI.builder.GetObject("containerTitleHotKeys")
 	containerTitleHotKeys := obj.(*gtk.Box)
 	imageContainerTitleHotKeys := getGtkImageFromResource(iconKeyBoard, 48, 48)
 	imageContainerTitleHotKeys.SetMarginBottom(10)
@@ -92,10 +91,10 @@ func (contentTabAtajos *contentTabAtajos) setupContentTabAtajos() {
 	}
 
 	// Default global hotkeys are added to the hotkey list
-	funcAddHotKey(moveForwards, contentTabAtajos.MainGUI.moveForwards)
-	funcAddHotKey(moveBackwards, contentTabAtajos.MainGUI.moveBackwards)
+	funcAddHotKey(moveForwards, contentTabAtajos.mainGUI.moveForwards)
+	funcAddHotKey(moveBackwards, contentTabAtajos.mainGUI.moveBackwards)
 
-	obj, _ = contentTabAtajos.MainGUI.builder.GetObject("listBoxGlobalHotKeys")
+	obj, _ = contentTabAtajos.mainGUI.builder.GetObject("listBoxGlobalHotKeys")
 	contentTabAtajos.listBoxHotKeys = obj.(*gtk.ListBox)
 
 	// Current config of global hotkeys from config file is read and every hotkey is added to the *gtk.ListBox
@@ -106,18 +105,20 @@ func (contentTabAtajos *contentTabAtajos) setupContentTabAtajos() {
 	// ----------------------------------------------------------------------------------------------------
 
 	// Handler of signal "app-listener-set-hotkeys"
-	contentTabAtajos.MainGUI.application.Connect(signalSetHotKeys, func(application *gtk.Application) {
-		keyboard.SetHotKeys(contentTabAtajos.listHotKeys)
-	})
+	contentTabAtajos.mainGUI.application.Connect(
+		signalSetHotKeys,
+		func(application *gtk.Application) { keyboard.SetHotKeys(contentTabAtajos.listHotKeys) },
+	)
 
 	// Emit signal to activate the global hotkey listener when the app starts
-	_, _ = contentTabAtajos.MainGUI.application.Emit(signalControlListener, true, true)
+	_, _ = contentTabAtajos.mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, true, true)
 }
 
 // Function that configures every *keyboard.Hotkey, its keys and its state
 func (contentTabAtajos *contentTabAtajos) getConfigHotKey(hotKey *keyboard.HotKey) {
-	result, _ := contentTabAtajos.MainGUI.application.Emit(
+	result, _ := contentTabAtajos.mainGUI.application.Emit(
 		signalGetConfig,
+		glib.TYPE_STRING,
 		sectionHotKeys,
 		infoGlobalHotKeys[hotKey.Name],
 	)
@@ -195,8 +196,9 @@ func (contentTabAtajos *contentTabAtajos) createListBoxRowHotKey(hotKey *keyboar
 		if hotkey.Disabled {
 			valueNewHotKey += ":disabled"
 		}
-		result, _ := contentTabAtajos.MainGUI.application.Emit(
+		result, _ := contentTabAtajos.mainGUI.application.Emit(
 			signalUpdateConfig,
+			glib.TYPE_BOOLEAN,
 			sectionHotKeys,
 			infoGlobalHotKeys[hotkey.Name],
 			valueNewHotKey,
@@ -209,13 +211,9 @@ func (contentTabAtajos *contentTabAtajos) createListBoxRowHotKey(hotKey *keyboar
 	buttonChangeHotKey := obj.(*gtk.Button)
 	buttonChangeHotKey.Connect("clicked", func(button *gtk.Button) {
 		go func() {
-			glib.IdleAdd(func() {
-				button.SetSensitive(false)
-			})
+			glib.IdleAdd(func() { button.SetSensitive(false) })
 			time.Sleep(time.Second / 3)
-			glib.IdleAdd(func() {
-				contentTabAtajos.showDialogChangeHotKey(button, hotKey)
-			})
+			glib.IdleAdd(func() { contentTabAtajos.showDialogChangeHotKey(button, hotKey) })
 		}()
 	})
 
@@ -226,7 +224,7 @@ func (contentTabAtajos *contentTabAtajos) createListBoxRowHotKey(hotKey *keyboar
 		hotKey.Disabled = button.GetActive()
 		result := functionUpdateHotKey(*hotKey)
 		if result {
-			_, _ = contentTabAtajos.MainGUI.application.Emit(signalControlListener, true, false)
+			_, _ = contentTabAtajos.mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, true, false)
 		}
 		buttonChangeHotKey.SetSensitive(!button.GetActive())
 	})
@@ -254,7 +252,7 @@ func (contentTabAtajos *contentTabAtajos) createListBoxRowHotKey(hotKey *keyboar
 // Function that shows a *gtk.Dialog to change a global hotkey keys
 func (contentTabAtajos *contentTabAtajos) showDialogChangeHotKey(sourceButton *gtk.Button, hotKey *keyboard.HotKey) {
 	// Emit signal to disable global hotkey listener
-	_, _ = contentTabAtajos.MainGUI.application.Emit(signalControlListener, false, false)
+	_, _ = contentTabAtajos.mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, false, false)
 
 	builder := getNewBuilder()
 
@@ -310,7 +308,7 @@ func (contentTabAtajos *contentTabAtajos) showDialogChangeHotKey(sourceButton *g
 	dialogChangeHotKey := obj.(*gtk.Dialog)
 	dialogChangeHotKey.SetTitle(fmt.Sprintf("%s - %s", title, funcGetStringResource("hotkey_title_config")))
 	dialogChangeHotKey.SetIcon(defaultAppIcon)
-	dialogChangeHotKey.SetTransientFor(contentTabAtajos.MainGUI.window)
+	dialogChangeHotKey.SetTransientFor(contentTabAtajos.mainGUI.window)
 
 	obj, _ = builder.GetObject("containerTitleDialogChangeHotKey")
 	containerTitleDialogChangeHotKey := obj.(*gtk.Box)
@@ -344,9 +342,7 @@ func (contentTabAtajos *contentTabAtajos) showDialogChangeHotKey(sourceButton *g
 	// Handler button okay
 	buttonAcceptNewHotKey.Connect("clicked", func(button *gtk.Button) {
 		go func() {
-			glib.IdleAdd(func() {
-				button.SetSensitive(false)
-			})
+			glib.IdleAdd(func() { button.SetSensitive(false) })
 			time.Sleep(time.Second / 3)
 			glib.IdleAdd(func() {
 				invalidHotKey := false
@@ -366,7 +362,7 @@ func (contentTabAtajos *contentTabAtajos) showDialogChangeHotKey(sourceButton *g
 				if !invalidHotKey { // Valid new HotKey, the signal is emitted to stablish it
 					hotKey.HotKeys = sliceOfKeys
 					hotKey.HotKeysKeyCodes = sliceofKeyVals
-					_, _ = sourceButton.Emit("listbox-update-hotkey")
+					_, _ = sourceButton.Emit("listbox-update-hotkey", glib.TYPE_NONE)
 					dialogChangeHotKey.Response(gtk.RESPONSE_CLOSE)
 				} else {
 					labelErrorNewHotKey.SetMarkup(fmt.Sprintf("<span color='tomato'><b>%s:</b></span> %s", funcGetStringResource("error"), error_))
@@ -384,28 +380,27 @@ func (contentTabAtajos *contentTabAtajos) showDialogChangeHotKey(sourceButton *g
 		sliceOfKeys = nil
 		sliceofKeyVals = nil
 
-		labelErrorNewHotKey.SetMarkup("")
 		containerErrorDialogNewHotKey.Hide()
+		labelErrorNewHotKey.SetMarkup("")
 
 		button.SetSensitive(false)
 		buttonAcceptNewHotKey.SetSensitive(false)
 	})
 
 	// Handler button cancel
-	buttonCancelNewHotKey.Connect("clicked", func(button *gtk.Button) {
-		dialogChangeHotKey.Response(gtk.RESPONSE_CLOSE)
-	})
+	buttonCancelNewHotKey.Connect(
+		"clicked",
+		func(button *gtk.Button) { dialogChangeHotKey.Response(gtk.RESPONSE_CLOSE) },
+	)
 
 	dialogChangeHotKey.Connect("key-press-event", func(dialog *gtk.Dialog, event *gdk.Event) bool {
 		if canEdit && amountOfKeysPressed < keyLimit {
 			eventKey := gdk.EventKeyNewFromEvent(event)
-			if keyName := glibown.KeyValName(eventKey.KeyVal()); len(keyName) > 0 {
+			if keyName := gdk.KeyValName(eventKey.KeyVal()); len(keyName) > 0 {
 				if !contains(sliceOfKeys, keyName) {
 					sliceOfKeys = append(sliceOfKeys, keyName)
 					sliceofKeyVals = append(sliceofKeyVals, eventKey.KeyVal())
-					glib.IdleAdd(func() {
-						labelDialogChangeHotKey.SetMarkup(strings.Join(sliceOfKeys, " + "))
-					})
+					glib.IdleAdd(func() { labelDialogChangeHotKey.SetMarkup(strings.Join(sliceOfKeys, " + ")) })
 					amountOfKeysPressed++
 				}
 			}
@@ -423,9 +418,9 @@ func (contentTabAtajos *contentTabAtajos) showDialogChangeHotKey(sourceButton *g
 	})
 
 	dialogChangeHotKey.Connect("response", func(dialog *gtk.Dialog, response int) {
-		_, _ = contentTabAtajos.MainGUI.application.Emit(signalControlListener, true, false)
+		_, _ = contentTabAtajos.mainGUI.application.Emit(signalControlListener, glib.TYPE_NONE, true, false)
 		dialog.Destroy()
-		contentTabAtajos.MainGUI.window.Present()
+		contentTabAtajos.mainGUI.window.Present()
 		sourceButton.SetSensitive(true)
 	})
 	dialogChangeHotKey.Run()

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"unicode"
 
-	"linux-windows-switcher/libs/goxdo"
 	"linux-windows-switcher/libs/xlib"
 
 	"github.com/gotk3/gotk3/gdk"
@@ -19,7 +18,7 @@ var (
 	funcGetStringResource func(id string) string       // Anonymous function that returns a string from the localizer
 )
 
-// Title of the application
+// GetTitle Get title of the application
 func GetTitle() string {
 	return title
 }
@@ -38,23 +37,21 @@ func getPixBufAtSize(iconName string, width int, height int) *gdk.Pixbuf {
 	return iconScaled
 }
 
-// This function return the current active windows using Xlib
+// This function returns the current active windows using Xlib
 func listWindows(includeIcons bool) []window {
 	var windows []window
 	lookForAlternativeProperty := false
-	defaultBufferSize := 1024
 
 	// Client List
-	val, err := xlib.GetWindowProperty(xlib.GetRootWindow(), "_NET_CLIENT_LIST", 0, defaultBufferSize, true)
+	val, err := xlib.GetWindowProperty(xlib.GetRootWindow(), "_NET_CLIENT_LIST")
 	if err != nil {
 		lookForAlternativeProperty = true
 	} else if val != nil && len(val.GetLong()) == 0 {
 		lookForAlternativeProperty = true
 	}
 	if lookForAlternativeProperty {
-		lookForAlternativeProperty = false
 		// GNOME Spec property "_WIN_CLIENT_LIST"
-		val, err = xlib.GetWindowProperty(xlib.GetRootWindow(), "_WIN_CLIENT_LIST", 0, defaultBufferSize, true)
+		val, err = xlib.GetWindowProperty(xlib.GetRootWindow(), "_WIN_CLIENT_LIST")
 		if err != nil {
 			return windows
 		} else if val != nil && len(val.GetLong()) == 0 {
@@ -63,21 +60,21 @@ func listWindows(includeIcons bool) []window {
 	}
 
 	// Loop to get data of every window
-	for _, v := range val.GetLong() {
+	for _, windowId := range val.GetLong() {
 		// Window
-		win := xlib.Window(v)
+		win := xlib.Window(windowId)
 
 		// Window Desktop
-		desktop_, err := xlib.GetWindowProperty(win, "_NET_WM_DESKTOP", 0, defaultBufferSize, true)
+		lookForAlternativeProperty = false
+		desktop_, err := xlib.GetWindowProperty(win, "_NET_WM_DESKTOP")
 		if err != nil {
 			lookForAlternativeProperty = true
 		} else if desktop_ != nil && len(desktop_.GetLong()) == 0 {
 			lookForAlternativeProperty = true
 		}
 		if lookForAlternativeProperty {
-			lookForAlternativeProperty = false
 			// GNOME Spec property "_WIN_WORKSPACE"
-			desktop_, err = xlib.GetWindowProperty(win, "_WIN_WORKSPACE", 0, defaultBufferSize, true)
+			desktop_, err = xlib.GetWindowProperty(win, "_WIN_WORKSPACE")
 			if err != nil {
 				continue
 			} else if desktop_ != nil && len(desktop_.GetLong()) == 0 {
@@ -87,28 +84,28 @@ func listWindows(includeIcons bool) []window {
 		desktop := int(desktop_.GetLong()[0])
 
 		// Window class
-		class_, err := xlib.GetWindowProperty(win, "WM_CLASS", 0, defaultBufferSize, true)
+		class_, err := xlib.GetWindowProperty(win, "WM_CLASS")
 		if err != nil {
 			continue
-		} else if class_ != nil && len(class_.GetChar()) == 0 {
+		} else if class_ != nil && len(class_.GetString()) == 0 {
 			continue
 		}
 		class := strings.Join(class_.GetString(), ".")
 		class = strings.TrimSpace(strings.TrimSuffix(class, "."))
 
 		// Window Title
-		title_, err := xlib.GetWindowProperty(win, "_NET_WM_NAME", 0, defaultBufferSize, true)
+		lookForAlternativeProperty = false
+		title_, err := xlib.GetWindowProperty(win, "_NET_WM_NAME")
 		if err != nil {
 			lookForAlternativeProperty = true
-		} else if title_ != nil && len(title_.GetChar()) == 0 {
+		} else if title_ != nil && len(title_.GetString()) == 0 {
 			lookForAlternativeProperty = true
 		}
 		if lookForAlternativeProperty {
-			lookForAlternativeProperty = false
-			title_, err = xlib.GetWindowProperty(win, "WM_NAME", 0, defaultBufferSize, true)
+			title_, err = xlib.GetWindowProperty(win, "WM_NAME")
 			if err != nil {
 				continue
-			} else if title_ != nil && len(title_.GetChar()) == 0 {
+			} else if title_ != nil && len(title_.GetString()) == 0 {
 				continue
 			}
 		}
@@ -127,7 +124,7 @@ func listWindows(includeIcons bool) []window {
 		}
 
 		window := &window{
-			id:      fmt.Sprint(v),
+			id:      fmt.Sprint(windowId),
 			class:   class,
 			title:   title,
 			desktop: desktop,
@@ -148,7 +145,7 @@ func removeItem(list []string, item string) []string {
 	return list
 }
 
-// Function that returns true wether an item of a slice of strings contaings a string
+// Function that returns true wether an item of a slice of strings contains a string
 // or if the string contains the item
 func contains(list []string, string string) bool {
 	response := false
@@ -216,29 +213,70 @@ func getNewBuilder() *gtk.Builder {
 	}(gtk.BuilderNewFromString(uiFile))
 }
 
+// Function that updates the property "_NET_WM_NAME" and "WM_NAME" for a window
+func changeWindowTitle(windowId string, newTitle string) bool {
+	windowId_ := xlib.Window(func() uint64 {
+		id, _ := strconv.ParseUint(windowId, 10, 64)
+		return id
+	}())
+	netWMProp := "_NET_WM_NAME"
+	wmProp := "WM_NAME"
+	utf8StringType := "UTF8_STRING"
+	stringType := "STRING"
+
+	originalValueNetWMNAmeProp, _ := xlib.GetWindowProperty(windowId_, netWMProp)
+	originalValueWMNameProp, _ := xlib.GetWindowProperty(windowId_, wmProp)
+
+	funcChangeWindowTitle := func(property string, typeOfProperty string, value string) bool {
+		result, err := xlib.ChangeWindowProperty(windowId_, property, typeOfProperty, 8, "PropModeReplace", value)
+		if err != nil {
+			return false
+		}
+		return result
+	}
+
+	funcRestoreWindowTitle := func(propertyResult *xlib.PropertyResult, property string, typeOfProperty string) {
+		title := strings.Join(propertyResult.GetString(), " ")
+		if len(title) > 0 {
+			funcChangeWindowTitle(property, typeOfProperty, title)
+		}
+	}
+
+	netWMNameResult := funcChangeWindowTitle(netWMProp, utf8StringType, newTitle)
+	WMNameResult := funcChangeWindowTitle(wmProp, stringType, newTitle)
+
+	finalResult := true
+	if !netWMNameResult && originalValueNetWMNAmeProp != nil {
+		funcRestoreWindowTitle(originalValueNetWMNAmeProp, netWMProp, utf8StringType)
+		finalResult = false
+	}
+	if !WMNameResult && originalValueWMNameProp != nil {
+		funcRestoreWindowTitle(originalValueWMNameProp, wmProp, stringType)
+		finalResult = false
+	}
+	return finalResult && netWMNameResult && WMNameResult
+}
+
 //-------------------------------------------------- CALLBACKS GLOBAL HOTKEYS -------------------------------------------
 
 // Function to move between windows following the current order, it can go backwards or forwards
-func (mainGUI *MainGUI) moveNextWindow(backwards bool) {
+func (mainGUI *MainGUI) moveNextWindow(backwards bool, times int) {
 	fmt.Printf("(Callback) moveNextWindow(backwards: %t)\n", backwards)
-	result, currentWindow_ := mainGUI.xdotool.GetActiveWindow()
-	if result != 0 || int(currentWindow_) == 0 {
-		fmt.Println("ERROR OBTAINING CURRENT WINDOW, calling itself again")
-		mainGUI.moveNextWindow(backwards)
+	result, currentWindow_ := xlib.GetActiveWindow()
+	if !result || currentWindow_ == xlib.CURRENTWINDOW {
+		times++
+		if times == 5 {
+			return
+		}
+		fmt.Println("ERROR OBTAINING CURRENT WINDOW, calling itself again.")
+		mainGUI.moveNextWindow(backwards, times)
 	}
 	fmt.Printf("(Callback) currentWindow: %d\n", currentWindow_)
 	currentWindow := strconv.Itoa(int(currentWindow_))
 	if len(currentOrder) == 1 && currentWindow == currentOrder[0].id {
 		return
 	}
-	currentIndex := -1
 	var nextIndex int
-	for index, window := range currentOrder {
-		if window.id == currentWindow {
-			currentIndex = index
-			break
-		}
-	}
 	if backwards {
 		nextIndex = currentIndex - 1
 		if nextIndex < 0 {
@@ -249,6 +287,11 @@ func (mainGUI *MainGUI) moveNextWindow(backwards bool) {
 		if nextIndex >= len(currentOrder) {
 			nextIndex = 0
 		}
+	}
+	if currentOrder[currentIndex].id == currentOrder[nextIndex].id &&
+		strings.Contains(currentOrder[nextIndex].class, "cloned") {
+		currentIndex = nextIndex
+		return
 	}
 	isNextWindowValid := false
 	for _, windowActive := range listWindows(false) {
@@ -263,10 +306,16 @@ func (mainGUI *MainGUI) moveNextWindow(backwards bool) {
 	recursiveCall := false // Wether the function should call itself again
 	if isNextWindowValid {
 		fmt.Println("(Callback) Next window:", currentOrder[nextIndex])
-		// Activating window using xdotool lib
-		windowId, _ := strconv.Atoi(currentOrder[nextIndex].id)
-		mainGUI.xdotool.WindowActivate(goxdo.Window(windowId))
-		mainGUI.xdotool.WaitForWindowActivate(goxdo.Window(windowId), true)
+		// Activating window
+		nextWindow := xlib.Window(func() int {
+			id, _ := strconv.Atoi(currentOrder[nextIndex].id)
+			return id
+		}())
+		if xlib.ActivateWindow(nextWindow) {
+			if xlib.WaitForWindowActivate(nextWindow, true) {
+				currentIndex = nextIndex
+			}
+		}
 	} else {
 		fmt.Println("(Callback) Next window:", currentOrder[nextIndex], "IS NOT VALID")
 		recursiveCall = true
@@ -275,25 +324,25 @@ func (mainGUI *MainGUI) moveNextWindow(backwards bool) {
 	if recursiveCall {
 		glib.IdleAdd(func() {
 			// Emit signal to delete invalid window
-			_, _ = mainGUI.application.Emit(signalDeleteRow, strconv.Itoa(nextIndex))
-			glib.IdleAdd(func() {
-				// When it's done deleting the window call itself again
-				mainGUI.moveNextWindow(backwards)
-			})
+			_, _ = mainGUI.application.Emit(signalDeleteRow, glib.TYPE_NONE, strconv.Itoa(nextIndex))
+			// When it's done deleting the window call itself again
+			glib.IdleAdd(func() { mainGUI.moveNextWindow(backwards, times) })
 		})
 	}
 }
 
 // Function to move to the next window (forwards). Callback of global hotkey
 func (mainGUI *MainGUI) moveForwards() {
+	times := 0
 	if len(currentOrder) > 0 {
-		mainGUI.moveNextWindow(false)
+		mainGUI.moveNextWindow(false, times)
 	}
 }
 
 // Function to move to the next window (backwards). Callback of global hotkey
 func (mainGUI *MainGUI) moveBackwards() {
+	times := 0
 	if len(currentOrder) > 0 {
-		mainGUI.moveNextWindow(true)
+		mainGUI.moveNextWindow(true, times)
 	}
 }
