@@ -13,13 +13,13 @@ Linux desktop application to cycle through windows like when using ALT + TAB but
 - Define custom global hotkeys to go forwards or backwards
 - Configuration of preferred classes can be saved
 - AppIndicator on tray so the main window can be closed
+- Change window title
 
 # Usage
 ## From source
 ```bash
 git clone https://github.com/ahsand97/Linux-Windows-Switcher.git
 cd Linux-Windows-Switcher
-go mod tidy
 go build -o linux-windows-switcher *.go
 ./linux-windows-switcher
 ```
