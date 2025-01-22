@@ -35,7 +35,7 @@ AppDir:
     name: Linux Windows Switcher
     icon: tabs-desktop # application-vnd.appimage can be used if want to set default icon for .AppImage file
     version: 1.0.0
-    exec: $APPDIR/usr/src/linux-windows-switcher
+    exec: usr/src/linux-windows-switcher
     # Set the application main script path as argument. Use '$@' to forward CLI parameters
     exec_args: '$@'
 
