@@ -36,6 +36,7 @@
     "gui_treeview_column_class": "Clase",
     "gui_treeview_column_title": "Título",
     "gui_treeview_column_exclude": "Excluír",
+    "gui_treeview_column_desktop_name": "Escritorio",
     "gui_notebook_title_open_windows": "Ventanas Abiertas",
     "gui_notebook_title_hotkeys": "Atajos de Teclado",
     "gui_label_button_hide_window": "Ocultar Ventana",

@@ -327,8 +327,8 @@ func ChangeWindowProperty[T string | []int8 | []int16 | []int64](
 		(*C.uchar)(reflect.ValueOf(newValue).UnsafePointer()),
 		C.int(len(newValue)),
 	)
+	C.XFlush(display)
 	if result == C.True {
-		C.XFlush(display)
 		return true, nil
 	} else {
 		return false, fmt.Errorf("an error occurred changing the window property")
@@ -700,7 +700,8 @@ func ActivateWindow(window Window) bool {
 		windowDesktopProp.NumberOfItems > 0 {
 		if _, currentDesktop := GetCurrentDesktop(); currentDesktop >= 0 {
 			windowDesktop := int(windowDesktopProp.longResult[0])
-			if windowDesktop > 0 && currentDesktop != windowDesktop {
+			if windowDesktop >= 0 && currentDesktop != windowDesktop {
+				fmt.Printf("Changing current desktop from %d to %d\n", currentDesktop, windowDesktop)
 				ChangeCurrentDesktop(int(windowDesktopProp.longResult[0]))
 			}
 		}
@@ -730,9 +731,11 @@ func ActivateWindow(window Window) bool {
 		C.SubstructureNotifyMask|C.SubstructureRedirectMask,
 		(*C.XEvent)(unsafe.Pointer(&xClientMessageEvent)),
 	)
+	C.XFlush(display)
 	return result == C.True
 }
 
+// GetCurrentDesktop get current desktop based on property "_NET_CURRENT_DESKTOP" on the root window
 func GetCurrentDesktop() (bool, int) {
 	currentDesktopProp, err := GetWindowProperty(GetRootWindow(), "_NET_CURRENT_DESKTOP")
 	if currentDesktopProp == nil && err != nil {
@@ -785,6 +788,7 @@ func ChangeCurrentDesktop(desktop int) bool {
 		C.SubstructureNotifyMask|C.SubstructureRedirectMask,
 		(*C.XEvent)(unsafe.Pointer(&xClientMessageEvent)),
 	)
+	C.XFlush(display)
 	return result == C.True
 }
 
@@ -793,7 +797,7 @@ func WaitForWindowActivate(window Window, active bool) bool {
 	activeWindow := Window(0)
 	maxTries := 500
 
-	for i := 0; i < maxTries; i++ {
+	for range maxTries {
 		if active {
 			if activeWindow == window {
 				break

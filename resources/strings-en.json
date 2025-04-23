@@ -36,6 +36,7 @@
     "gui_treeview_column_class": "Class",
     "gui_treeview_column_title": "Title",
     "gui_treeview_column_exclude": "Exclude",
+    "gui_treeview_column_desktop_name": "Desktop",
     "gui_notebook_title_open_windows": "Open Windows",
     "gui_notebook_title_hotkeys": "Keyboard HotKeys",
     "gui_label_button_hide_window": "Hide Window",

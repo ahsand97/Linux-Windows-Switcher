@@ -114,7 +114,7 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 		go func() {
 			glib.IdleAdd(func() {
 				contentTabVentanas.listWindowClass = nil
-				contentTabVentanas.listBoxActiveWindowClasses.GetChildren().Foreach(func(item interface{}) {
+				contentTabVentanas.listBoxActiveWindowClasses.GetChildren().Foreach(func(item any) {
 					contentTabVentanas.listBoxActiveWindowClasses.Remove(item.(*gtk.Widget))
 				})
 				button.SetSensitive(false)
@@ -184,7 +184,7 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 			contentTabVentanas.listWindowClass = nil
 
 			// Remove all items from the *gtk.ListBox of active window-classes
-			contentTabVentanas.listBoxActiveWindowClasses.GetChildren().Foreach(func(item interface{}) {
+			contentTabVentanas.listBoxActiveWindowClasses.GetChildren().Foreach(func(item any) {
 				contentTabVentanas.listBoxActiveWindowClasses.Remove(item.(*gtk.Widget))
 			})
 			// Get all active window-classes
@@ -261,8 +261,7 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 		}()
 	})
 
-	// Map containing currently active windows, it is used to query the icon when loading
-	// config from file
+	// Map containing currently active windows, it is used to query the icon when loading config from file
 	activeWindows := map[string]window{}
 	for _, activeWindow := range listWindows(true) {
 		activeWindow.class = getClass(activeWindow.class)
@@ -341,7 +340,7 @@ func (contentTabVentanas *contentTabVentanas) setupContentTabVentanas() {
 	// Signal to enable the button associated with the *gtk.ListBoxRow of active window-classes
 	_, _ = glib.SignalNew("listBoxActiveWindowClasses-enable-button")
 
-	// Get all active windows taking into consideration the config of preferred/excluded classes
+	// Get all active windows when the application opens for the first time taking into consideration the config of preferred/excluded classes
 	contentTabVentanas.getActiveWindows(true, true)
 }
 
@@ -420,7 +419,9 @@ func (contentTabVentanas *contentTabVentanas) getActiveWindows(resetCurrentOrder
 	for index, validWindow := range validWindows {
 		validWindow.class = getClass(validWindow.class)
 		validWindow.order = index + 1
+		// Add every valid window to the internal window list
 		contentTabVentanas.windowList.windowList = append(contentTabVentanas.windowList.windowList, validWindow)
+		// Add every valid window to the *gtk.TreeView (GUI)
 		contentTabVentanas.windowList.addRow(validWindow, false, nil)
 	}
 

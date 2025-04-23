@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -39,28 +40,37 @@ func getPixBufAtSize(iconName string, width int, height int) *gdk.Pixbuf {
 
 // This function returns the current active windows using Xlib
 func listWindows(includeIcons bool) []window {
+	var desktopNames []string
 	var windows []window
 	lookForAlternativeProperty := false
 
 	// Client List
-	val, err := xlib.GetWindowProperty(xlib.GetRootWindow(), "_NET_CLIENT_LIST")
+	netClientListResult, err := xlib.GetWindowProperty(xlib.GetRootWindow(), "_NET_CLIENT_LIST")
 	if err != nil {
 		lookForAlternativeProperty = true
-	} else if val != nil && len(val.GetLong()) == 0 {
+	} else if netClientListResult != nil && len(netClientListResult.GetLong()) == 0 {
 		lookForAlternativeProperty = true
 	}
 	if lookForAlternativeProperty {
 		// GNOME Spec property "_WIN_CLIENT_LIST"
-		val, err = xlib.GetWindowProperty(xlib.GetRootWindow(), "_WIN_CLIENT_LIST")
+		netClientListResult, err = xlib.GetWindowProperty(xlib.GetRootWindow(), "_WIN_CLIENT_LIST")
 		if err != nil {
 			return windows
-		} else if val != nil && len(val.GetLong()) == 0 {
+		} else if netClientListResult != nil && len(netClientListResult.GetLong()) == 0 {
 			return windows
 		}
 	}
 
+	// Get desktop information
+	netDesktopNamesPropertyResult, err := xlib.GetWindowProperty(xlib.GetRootWindow(), "_NET_DESKTOP_NAMES")
+	if netDesktopNamesPropertyResult != nil && netDesktopNamesPropertyResult.NumberOfItems > 0 {
+		for _, desktopName := range netDesktopNamesPropertyResult.GetString() {
+			desktopNames = append(desktopNames, desktopName)
+		}
+	}
+
 	// Loop to get data of every window
-	for _, windowId := range val.GetLong() {
+	for _, windowId := range netClientListResult.GetLong() {
 		// Window
 		win := xlib.Window(windowId)
 
@@ -128,7 +138,16 @@ func listWindows(includeIcons bool) []window {
 			class:   class,
 			title:   title,
 			desktop: desktop,
-			icon:    windowIcon,
+			desktopName: func() string {
+				if desktop == -1 {
+					return ""
+				}
+				if len(desktopNames) >= 0 && len(desktopNames) >= desktop {
+					return desktopNames[desktop]
+				}
+				return strconv.Itoa(desktop)
+			}(),
+			icon: windowIcon,
 		}
 		windows = append(windows, *window)
 	}
@@ -139,7 +158,7 @@ func listWindows(includeIcons bool) []window {
 func removeItem(list []string, item string) []string {
 	for index, value := range list {
 		if value == item {
-			return append(list[:index], list[index+1:]...)
+			return slices.Delete(list, index, index+1)
 		}
 	}
 	return list
@@ -305,7 +324,7 @@ func (mainGUI *MainGUI) moveNextWindow(backwards bool, times int) {
 	}
 	recursiveCall := false // Wether the function should call itself again
 	if isNextWindowValid {
-		fmt.Println("(Callback) Next window:", currentOrder[nextIndex])
+		fmt.Println("(Callback) Next window:", currentOrder[nextIndex].windowToString())
 		// Activating window
 		nextWindow := xlib.Window(func() int {
 			id, _ := strconv.Atoi(currentOrder[nextIndex].id)

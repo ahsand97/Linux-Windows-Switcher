@@ -16,7 +16,7 @@ script:
   - apt update
   - apt install -y curl libgtk-3-dev libappindicator3-dev libx11-xcb-dev libxkbcommon-x11-dev squashfs-tools
   # Install GoLang to build application
-  - export GO_VERSION=go1.23.4
+  - export GO_VERSION=go1.24.2
   - export GO_SOURCE_FILE=$GO_VERSION.linux-amd64.tar.gz
   - rm -rf /$GO_VERSION | true
   - mkdir -p /$GO_VERSION ; cd /$GO_VERSION

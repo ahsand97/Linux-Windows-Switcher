@@ -3,11 +3,13 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"linux-windows-switcher/appindicator"
@@ -154,9 +156,9 @@ func (app *mainApplication) startup() {
 
 // Callback of signal "activate" of the application
 // This function initializes the UI and the app if it hasn't started yet, otherwise it shows the main window
-func (app *mainApplication) activate() {
+func (app *mainApplication) activate(debug bool) {
 	if app.gui == nil {
-		app.keyboardListener = keyboard.NewListenerKeyBoard(app.application)
+		app.keyboardListener = keyboard.NewListenerKeyBoard(app.application, debug)
 		app.appIndicator = appindicator.NewAppIndicator(
 			app.application,
 			[]string{iconFileDisabled.String(), iconFile.String()},
@@ -276,14 +278,7 @@ func initLocalization() {
 		}
 		languages = append(languages, lang.String())
 	}
-	defaultLanguageAdded := false
-	for _, lang := range languages {
-		if lang == defaultLanguage.String() {
-			defaultLanguageAdded = true
-			break
-		}
-	}
-	if !defaultLanguageAdded {
+	if !slices.Contains(languages, defaultLanguage.String()) {
 		languages = append(languages, defaultLanguage.String())
 	}
 
@@ -303,14 +298,18 @@ func initLocalization() {
 }
 
 func main() {
-	var args []string
-	for index, value := range os.Args {
-		if value == "--hide" {
-			showWindow = false
-		} else {
-			args = append(args, os.Args[index])
-		}
-	}
+	// CLI Flags
+	hideFlag := flag.Bool(
+		"hide",
+		false,
+		"Start the application only in the tray area (appindicator), not showing the main window.",
+	)
+	debugFlag := flag.Bool("debug", false, "Display debug information, keyboard events.")
+
+	// Parse the flags
+	flag.Parse()
+
+	showWindow = !*hideFlag
 
 	// Init Localization
 	initLocalization()
@@ -329,6 +328,9 @@ func main() {
 
 	mainApplication := newApplication(application)
 	mainApplication.application.Connect("startup", func(application *gtk.Application) { mainApplication.startup() })
-	mainApplication.application.Connect("activate", func(application *gtk.Application) { mainApplication.activate() })
-	mainApplication.application.Run(args)
+	mainApplication.application.Connect(
+		"activate",
+		func(application *gtk.Application) { mainApplication.activate(*debugFlag) },
+	)
+	mainApplication.application.Run(nil)
 }

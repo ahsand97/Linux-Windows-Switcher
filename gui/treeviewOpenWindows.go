@@ -29,6 +29,8 @@ const (
 	// Columns associated to the *gtk.ListModel
 	columnOrder = iota
 	columnId
+	columnDesktopNumber
+	columnDesktopName
 	columnClass
 	columnTitle
 	columnExcluded
@@ -80,6 +82,10 @@ func (listaVentanas *listaVentanas) initLocale() {
 	obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("columnExclude")
 	columnExclude_ := obj.(*gtk.TreeViewColumn)
 	columnExclude_.SetTitle(funcGetStringResource("gui_treeview_column_exclude"))
+
+	obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("columnDesktopName")
+	columnDesktopName_ := obj.(*gtk.TreeViewColumn)
+	columnDesktopName_.SetTitle(funcGetStringResource("gui_treeview_column_desktop_name"))
 }
 
 // Config function
@@ -192,42 +198,51 @@ func (listaVentanas *listaVentanas) setupLista() {
 	listaVentanas.treeViewActiveWindows.Connect(
 		"query-tooltip",
 		func(view *gtk.TreeView, x int, y int, keyboardMode bool, tooltip *gtk.Tooltip) bool {
-			if !keyboardMode {
-				bx := new(int)
-				by := new(int)
-				view.ConvertWidgetToBinWindowCoords(x, y, bx, by)
-				if path, column, _, _, exists := view.GetPathAtPos(*bx, *by); exists {
-					if column.GetTitle() == funcGetStringResource("gui_treeview_column_class") ||
-						column.GetTitle() == funcGetStringResource("gui_treeview_column_title") {
-						iter, _ := listaVentanas.listStoreActiveWindows.GetIter(path)
+			if keyboardMode {
+				return false
+			}
+			bx := new(int)
+			by := new(int)
+			view.ConvertWidgetToBinWindowCoords(x, y, bx, by)
+			if path, column, _, _, exists := view.GetPathAtPos(*bx, *by); exists {
+				stringColumnDesktop := funcGetStringResource("gui_treeview_column_desktop_name")
+				stringColumnClass := funcGetStringResource("gui_treeview_column_class")
+				stringColumnTitle := funcGetStringResource("gui_treeview_column_title")
+				// Only show tooltip for columns Desktop, Class and Title
+				if column.GetTitle() != stringColumnDesktop && column.GetTitle() != stringColumnClass &&
+					column.GetTitle() != stringColumnTitle {
+					return false
+				}
+				iter, _ := listaVentanas.listStoreActiveWindows.GetIter(path)
 
-						// *gtk.CellRendererText where to show the tooltip
-						var obj glib.IObject
-						if column.GetTitle() == funcGetStringResource("gui_treeview_column_class") {
-							obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("Class")
-						} else if column.GetTitle() == funcGetStringResource("gui_treeview_column_title") {
-							obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("Title")
-						}
-						cellRenderer := obj.(*gtk.CellRendererText)
+				// *gtk.CellRendererText where to show the tooltip
+				var obj glib.IObject
+				toolTipText := ""
+				if column.GetTitle() == stringColumnDesktop {
+					obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("DesktopName")
+					value, _ := listaVentanas.listStoreActiveWindows.GetValue(iter, columnDesktopName)
+					goValue, _ := value.GoValue()
+					desktopName := goValue.(string)
+					toolTipText = desktopName
+				} else if column.GetTitle() == stringColumnClass {
+					obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("Class")
+					value, _ := listaVentanas.listStoreActiveWindows.GetValue(iter, columnClass)
+					goValue, _ := value.GoValue()
+					class := goValue.(string)
+					toolTipText = strings.TrimPrefix(class, prefixClonedWindow)
+				} else if column.GetTitle() == stringColumnTitle {
+					obj, _ = listaVentanas.contentTabVentanas.mainGUI.builder.GetObject("Title")
+					value, _ := listaVentanas.listStoreActiveWindows.GetValue(iter, columnTitle)
+					goValue, _ := value.GoValue()
+					title := goValue.(string)
+					toolTipText = title
+				}
+				cellRenderer := obj.(*gtk.CellRendererText)
 
-						toolTipText := ""
-						if column.GetTitle() == funcGetStringResource("gui_treeview_column_class") {
-							value, _ := listaVentanas.listStoreActiveWindows.GetValue(iter, columnClass)
-							goValue, _ := value.GoValue()
-							class := goValue.(string)
-							toolTipText = strings.TrimPrefix(class, prefixClonedWindow)
-						} else if column.GetTitle() == funcGetStringResource("gui_treeview_column_title") {
-							value, _ := listaVentanas.listStoreActiveWindows.GetValue(iter, columnTitle)
-							goValue, _ := value.GoValue()
-							title := goValue.(string)
-							toolTipText = title
-						}
-						if len(toolTipText) > 0 && cellRenderer != nil {
-							tooltip.SetText(toolTipText)
-							view.SetTooltipCell(tooltip, path, column, &cellRenderer.CellRenderer)
-							return true
-						}
-					}
+				if len(toolTipText) > 0 && cellRenderer != nil {
+					tooltip.SetText(toolTipText)
+					view.SetTooltipCell(tooltip, path, column, &cellRenderer.CellRenderer)
+					return true
 				}
 			}
 			return false
@@ -691,6 +706,8 @@ func (listaVentanas *listaVentanas) addRow(window window, clonedWindow bool, ite
 		[]int{
 			columnOrder,
 			columnId,
+			columnDesktopNumber,
+			columnDesktopName,
 			columnClass,
 			columnTitle,
 			columnExcluded,
@@ -701,9 +718,11 @@ func (listaVentanas *listaVentanas) addRow(window window, clonedWindow bool, ite
 			columnDeletedWindow,
 			columnIcon,
 		},
-		[]interface{}{
+		[]any{
 			window.order,
 			window.id,
+			window.desktop,
+			window.desktopName,
 			window.class,
 			window.title,
 			false,
@@ -729,6 +748,14 @@ func (listaVentanas *listaVentanas) getWindowFromRowIter(iter *gtk.TreeIter) win
 	goValue, _ = value.GoValue()
 	id := goValue.(string)
 
+	value, _ = listaVentanas.listStoreActiveWindows.GetValue(iter, columnDesktopNumber)
+	goValue, _ = value.GoValue()
+	desktopNumber := goValue.(int)
+
+	value, _ = listaVentanas.listStoreActiveWindows.GetValue(iter, columnDesktopName)
+	goValue, _ = value.GoValue()
+	desktopName := goValue.(string)
+
 	value, _ = listaVentanas.listStoreActiveWindows.GetValue(iter, columnClass)
 	goValue, _ = value.GoValue()
 	class := goValue.(string)
@@ -741,7 +768,15 @@ func (listaVentanas *listaVentanas) getWindowFromRowIter(iter *gtk.TreeIter) win
 	goValue, _ = value.GoValue()
 	icon := goValue.(*gdk.Pixbuf)
 
-	return window{id: id, class: class, title: title, order: order, icon: icon}
+	return window{
+		id:          id,
+		class:       class,
+		title:       title,
+		desktop:     desktopNumber,
+		desktopName: desktopName,
+		order:       order,
+		icon:        icon,
+	}
 }
 
 func (listaVentanas *listaVentanas) showDialogChangeWindowTitle(iter *gtk.TreeIter) {

@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gotk3/gotk3/glib"
@@ -23,12 +24,24 @@ type MainGUI struct {
 }
 
 type window struct {
-	id      string
-	class   string
-	title   string
-	desktop int
-	order   int
-	icon    *gdk.Pixbuf
+	id          string
+	class       string
+	title       string
+	desktop     int
+	desktopName string
+	order       int
+	icon        *gdk.Pixbuf
+}
+
+func (w window) windowToString() string {
+	return fmt.Sprintf(
+		"{ID: %s, DesktopNumber: %d, DesktopName: %s, Class: %s, Title: %s}",
+		w.id,
+		w.desktop,
+		w.desktopName,
+		w.class,
+		w.title,
+	)
 }
 
 // Globals
@@ -48,7 +61,7 @@ const (
 	// Title
 	title = "Linux Windows Switcher"
 
-	// Resource's names
+	// Resources names
 	uiFileName           = "Application.xml"
 	iconFileName         = "tabs.png"
 	iconFileNameDisabled = "tabs-disabled.png"

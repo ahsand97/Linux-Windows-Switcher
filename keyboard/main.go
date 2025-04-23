@@ -39,10 +39,12 @@ var (
 	keys = map[uint16]bool{}
 	// Channel used to communicate with the goroutine listening to keyboard events
 	mainChannel = make(chan bool)
+	debug       bool
 )
 
 // NewListenerKeyBoard constructor
-func NewListenerKeyBoard(application *gtk.Application) *ListenerKeyboard {
+func NewListenerKeyBoard(application *gtk.Application, debug_ bool) *ListenerKeyboard {
+	debug = debug_
 	listenerKeyboard := &ListenerKeyboard{application: application}
 
 	listenerKeyboard.setupContentKeyboard()
@@ -98,7 +100,10 @@ func (listenerKeyboard *ListenerKeyboard) startKeyboardListener() {
 					channel := hook.Start()
 					listenerActive = true
 					for evento := range channel {
-						if (evento.Kind == hook.KeyDown || evento.Kind == hook.KeyHold) && listenerKeyboard.active {
+						if debug && (evento.Kind == hook.KeyDown || evento.Kind == hook.KeyHold || evento.Kind == hook.KeyUp) {
+							fmt.Println("DEBUG: ", evento)
+						}
+						if listenerKeyboard.active && (evento.Kind == hook.KeyDown || evento.Kind == hook.KeyHold) {
 							// 2 events (KeyDown and KeyHold) for the same key can't be reported, one is ignored
 							if evento.Rawcode == teclaDownOrHold {
 								continue
@@ -107,7 +112,7 @@ func (listenerKeyboard *ListenerKeyboard) startKeyboardListener() {
 							keys[evento.Rawcode] = true // Update the map to indicate the key is pressed
 							// Every time a key is pressed we check if the global hotkey was activated
 							checkKeysPressed()
-						} else if (evento.Kind == hook.KeyUp) && listenerKeyboard.active {
+						} else if listenerKeyboard.active && (evento.Kind == hook.KeyUp) {
 							keys[evento.Rawcode] = false // Update the map to indicate the key is not pressed anymore
 							teclaDownOrHold = 0
 							// Delete all non-active entries from the map
