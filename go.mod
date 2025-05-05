@@ -9,12 +9,12 @@ require (
 	github.com/dawidd6/go-appindicator v1.0.1
 	github.com/gotk3/gotk3 v0.6.5-0.20240618185848-ff349ae13f56
 	github.com/nicksnyder/go-i18n/v2 v2.6.0
-	github.com/robotn/gohook v0.42.0
+	github.com/robotn/gohook v0.40.0
 	golang.org/x/text v0.24.0
 )
 
 require (
-	github.com/spf13/afero v1.14.0 // indirect
-	github.com/vcaesar/keycode v0.10.1 // indirect
-	golang.org/x/sys v0.32.0 // indirect
+	github.com/spf13/afero v1.4.0 // indirect
+	github.com/vcaesar/keycode v0.10.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
 )
